@@ -11,8 +11,9 @@ import {
   TextInput,
   Image,
   ActivityIndicator,
+  RefreshControl,
 } from "react-native"
-import { ArrowLeft, Search, Filter, TrendingUp, TrendingDown, Minus } from "lucide-react-native"
+import { ArrowLeft, Search, Filter, TrendingUp, TrendingDown, Minus, Clock, MapPin } from "lucide-react-native"
 import { router, useLocalSearchParams } from "expo-router"
 import { mockProducts } from "@/services/mockData"
 
@@ -50,9 +51,20 @@ export default function MandiDetailsScreen() {
   const [filteredProducts, setFilteredProducts] = useState<MandiProduct[]>([])
   const [searchQuery, setSearchQuery] = useState("")
   const [selectedCategory, setSelectedCategory] = useState<"all" | "vegetable" | "fruit">("all")
+  const [selectedQuality, setSelectedQuality] = useState<"all" | "Premium" | "Standard" | "Economy">("all")
   const [loading, setLoading] = useState(true)
+  const [refreshing, setRefreshing] = useState(false)
 
   useEffect(() => {
+    loadProducts()
+  }, [])
+
+  useEffect(() => {
+    filterProducts()
+  }, [searchQuery, selectedCategory, selectedQuality, products])
+
+  const loadProducts = async () => {
+    setLoading(true)
     // Simulate loading
     setTimeout(() => {
       const mandiProducts = generateMandiProducts()
@@ -60,9 +72,15 @@ export default function MandiDetailsScreen() {
       setFilteredProducts(mandiProducts)
       setLoading(false)
     }, 1000)
-  }, [])
+  }
 
-  useEffect(() => {
+  const onRefresh = async () => {
+    setRefreshing(true)
+    await loadProducts()
+    setRefreshing(false)
+  }
+
+  const filterProducts = () => {
     let filtered = products
 
     // Filter by search query
@@ -75,8 +93,13 @@ export default function MandiDetailsScreen() {
       filtered = filtered.filter((product) => product.category === selectedCategory)
     }
 
+    // Filter by quality
+    if (selectedQuality !== "all") {
+      filtered = filtered.filter((product) => product.quality === selectedQuality)
+    }
+
     setFilteredProducts(filtered)
-  }, [searchQuery, selectedCategory, products])
+  }
 
   const handleBack = () => {
     router.back()
@@ -86,22 +109,22 @@ export default function MandiDetailsScreen() {
     if (change > 0) {
       return (
         <View style={[styles.changeContainer, styles.priceUp]}>
-          <TrendingUp size={10} color="#EF4444" />
-          <Text style={styles.changeTextUp}>+₹{change}</Text>
+          <TrendingUp size={12} color="#EF4444" />
+          <Text style={styles.changeTextUp}>+₹{change} (+{changePercent.toFixed(1)}%)</Text>
         </View>
       )
     } else if (change < 0) {
       return (
         <View style={[styles.changeContainer, styles.priceDown]}>
-          <TrendingDown size={10} color="#22C55E" />
-          <Text style={styles.changeTextDown}>₹{change}</Text>
+          <TrendingDown size={12} color="#22C55E" />
+          <Text style={styles.changeTextDown}>₹{change} ({changePercent.toFixed(1)}%)</Text>
         </View>
       )
     } else {
       return (
         <View style={[styles.changeContainer, styles.priceStable]}>
-          <Minus size={10} color="#64748B" />
-          <Text style={styles.changeTextStable}>--</Text>
+          <Minus size={12} color="#64748B" />
+          <Text style={styles.changeTextStable}>No change</Text>
         </View>
       )
     }
@@ -116,37 +139,68 @@ export default function MandiDetailsScreen() {
         style={styles.productImage}
       />
       <View style={styles.productInfo}>
-        <Text style={styles.productName}>{item.name}</Text>
-        <Text style={styles.productQuality}>{item.quality} Quality</Text>
+        <View style={styles.productHeader}>
+          <Text style={styles.productName}>{item.name}</Text>
+          <View style={[styles.qualityBadge, { backgroundColor: getQualityColor(item.quality) }]}>
+            <Text style={styles.qualityText}>{item.quality}</Text>
+          </View>
+        </View>
         <View style={styles.priceRow}>
           <Text style={styles.currentPrice}>₹{item.currentPrice}/kg</Text>
           {renderPriceChange(item.change, item.changePercent)}
         </View>
-        <Text style={styles.lastUpdated}>Updated {item.lastUpdated}</Text>
+        <View style={styles.productFooter}>
+          <Text style={styles.lastUpdated}>Updated {item.lastUpdated}</Text>
+          <Text style={styles.categoryText}>{item.category}</Text>
+        </View>
       </View>
     </View>
   )
 
-  const renderCategoryFilter = () => (
-    <View style={styles.filterContainer}>
-      <TouchableOpacity
-        style={[styles.filterButton, selectedCategory === "all" && styles.filterButtonActive]}
-        onPress={() => setSelectedCategory("all")}
-      >
-        <Text style={[styles.filterText, selectedCategory === "all" && styles.filterTextActive]}>All</Text>
-      </TouchableOpacity>
-      <TouchableOpacity
-        style={[styles.filterButton, selectedCategory === "vegetable" && styles.filterButtonActive]}
-        onPress={() => setSelectedCategory("vegetable")}
-      >
-        <Text style={[styles.filterText, selectedCategory === "vegetable" && styles.filterTextActive]}>Vegetables</Text>
-      </TouchableOpacity>
-      <TouchableOpacity
-        style={[styles.filterButton, selectedCategory === "fruit" && styles.filterButtonActive]}
-        onPress={() => setSelectedCategory("fruit")}
-      >
-        <Text style={[styles.filterText, selectedCategory === "fruit" && styles.filterTextActive]}>Fruits</Text>
-      </TouchableOpacity>
+  const getQualityColor = (quality: string) => {
+    switch (quality) {
+      case "Premium": return "#22C55E"
+      case "Standard": return "#3B82F6"
+      case "Economy": return "#F59E0B"
+      default: return "#64748B"
+    }
+  }
+
+  const renderFilters = () => (
+    <View style={styles.filtersContainer}>
+      <View style={styles.filterRow}>
+        <Text style={styles.filterLabel}>Category:</Text>
+        <View style={styles.filterButtons}>
+          {["all", "vegetable", "fruit"].map((category) => (
+            <TouchableOpacity
+              key={category}
+              style={[styles.filterButton, selectedCategory === category && styles.filterButtonActive]}
+              onPress={() => setSelectedCategory(category as any)}
+            >
+              <Text style={[styles.filterText, selectedCategory === category && styles.filterTextActive]}>
+                {category.charAt(0).toUpperCase() + category.slice(1)}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+      </View>
+      
+      <View style={styles.filterRow}>
+        <Text style={styles.filterLabel}>Quality:</Text>
+        <View style={styles.filterButtons}>
+          {["all", "Premium", "Standard", "Economy"].map((quality) => (
+            <TouchableOpacity
+              key={quality}
+              style={[styles.filterButton, selectedQuality === quality && styles.filterButtonActive]}
+              onPress={() => setSelectedQuality(quality as any)}
+            >
+              <Text style={[styles.filterText, selectedQuality === quality && styles.filterTextActive]}>
+                {quality}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+      </View>
     </View>
   )
 
@@ -154,11 +208,17 @@ export default function MandiDetailsScreen() {
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
         <TouchableOpacity style={styles.backButton} onPress={handleBack}>
-          <ArrowLeft size={24} color="#1E293B" />
+          <ArrowLeft size={24} color="#FFFFFF" />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Amritsar Mandi</Text>
+        <View style={styles.headerContent}>
+          <Text style={styles.headerTitle}>Amritsar Main Mandi</Text>
+          <View style={styles.locationInfo}>
+            <MapPin size={14} color="rgba(255,255,255,0.8)" />
+            <Text style={styles.locationText}>Punjab, India</Text>
+          </View>
+        </View>
         <TouchableOpacity style={styles.filterIcon}>
-          <Filter size={20} color="#64748B" />
+          <Filter size={20} color="#FFFFFF" />
         </TouchableOpacity>
       </View>
 
@@ -173,7 +233,7 @@ export default function MandiDetailsScreen() {
         />
       </View>
 
-      {renderCategoryFilter()}
+      {renderFilters()}
 
       <View style={styles.statsContainer}>
         <View style={styles.statItem}>
@@ -181,12 +241,15 @@ export default function MandiDetailsScreen() {
           <Text style={styles.statLabel}>Products</Text>
         </View>
         <View style={styles.statItem}>
-          <Text style={styles.statNumber}>Live</Text>
+          <Text style={[styles.statNumber, { color: "#22C55E" }]}>Live</Text>
           <Text style={styles.statLabel}>Prices</Text>
         </View>
         <View style={styles.statItem}>
-          <Text style={styles.statNumber}>24/7</Text>
-          <Text style={styles.statLabel}>Updates</Text>
+          <View style={styles.updateIndicator}>
+            <Clock size={16} color="#22C55E" />
+            <Text style={[styles.statNumber, { fontSize: 16 }]}>2m</Text>
+          </View>
+          <Text style={styles.statLabel}>Last Update</Text>
         </View>
       </View>
 
@@ -202,7 +265,13 @@ export default function MandiDetailsScreen() {
           keyExtractor={(item) => item.id}
           contentContainerStyle={styles.productsList}
           showsVerticalScrollIndicator={false}
-          numColumns={1}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+          ListEmptyComponent={
+            <View style={styles.emptyContainer}>
+              <Text style={styles.emptyTitle}>No products found</Text>
+              <Text style={styles.emptySubtitle}>Try adjusting your search or filters</Text>
+            </View>
+          }
         />
       )}
     </SafeAreaView>
@@ -219,21 +288,44 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
     paddingHorizontal: 16,
-    paddingVertical: 12,
-    backgroundColor: "#FFFFFF",
-    borderBottomWidth: 1,
-    borderBottomColor: "#E2E8F0",
+    paddingVertical: 16,
+    backgroundColor: "#22C55E",
+    minHeight: 80,
   },
   backButton: {
-    padding: 8,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "rgba(255,255,255,0.2)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  headerContent: {
+    flex: 1,
+    alignItems: "center",
   },
   headerTitle: {
     fontSize: 18,
     fontWeight: "600",
-    color: "#1E293B",
+    color: "#FFFFFF",
+  },
+  locationInfo: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginTop: 4,
+    gap: 4,
+  },
+  locationText: {
+    fontSize: 12,
+    color: "rgba(255,255,255,0.8)",
   },
   filterIcon: {
-    padding: 8,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "rgba(255,255,255,0.2)",
+    justifyContent: "center",
+    alignItems: "center",
   },
   searchContainer: {
     flexDirection: "row",
@@ -244,8 +336,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderRadius: 12,
-    borderWidth: 1,
-    borderColor: "#E2E8F0",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
   },
   searchInput: {
     flex: 1,
@@ -253,16 +348,36 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: "#1E293B",
   },
-  filterContainer: {
-    flexDirection: "row",
-    paddingHorizontal: 16,
+  filtersContainer: {
+    backgroundColor: "#FFFFFF",
+    marginHorizontal: 16,
     marginBottom: 12,
+    padding: 16,
+    borderRadius: 12,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  filterRow: {
+    marginBottom: 12,
+  },
+  filterLabel: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#1E293B",
+    marginBottom: 8,
+  },
+  filterButtons: {
+    flexDirection: "row",
     gap: 8,
+    flexWrap: "wrap",
   },
   filterButton: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
     backgroundColor: "#F1F5F9",
     borderWidth: 1,
     borderColor: "#E2E8F0",
@@ -272,7 +387,7 @@ const styles = StyleSheet.create({
     borderColor: "#22C55E",
   },
   filterText: {
-    fontSize: 14,
+    fontSize: 12,
     fontWeight: "500",
     color: "#64748B",
   },
@@ -305,6 +420,11 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: "#64748B",
     marginTop: 2,
+  },
+  updateIndicator: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
   },
   loadingContainer: {
     flex: 1,
@@ -342,27 +462,39 @@ const styles = StyleSheet.create({
     flex: 1,
     marginLeft: 16,
   },
+  productHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+    marginBottom: 8,
+  },
   productName: {
     fontSize: 16,
     fontWeight: "600",
     color: "#1E293B",
-    marginBottom: 4,
+    flex: 1,
+    marginRight: 8,
   },
-  productQuality: {
-    fontSize: 12,
-    color: "#64748B",
-    marginBottom: 8,
+  qualityBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 12,
+  },
+  qualityText: {
+    fontSize: 10,
+    fontWeight: "600",
+    color: "#FFFFFF",
   },
   priceRow: {
     flexDirection: "row",
     alignItems: "center",
-    marginBottom: 4,
+    marginBottom: 8,
   },
   currentPrice: {
     fontSize: 18,
     fontWeight: "700",
     color: "#22C55E",
-    marginRight: 8,
+    marginRight: 12,
   },
   changeContainer: {
     flexDirection: "row",
@@ -370,6 +502,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: 4,
+    gap: 2,
   },
   priceUp: {
     backgroundColor: "#FEF2F2",
@@ -384,23 +517,49 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: "600",
     color: "#EF4444",
-    marginLeft: 2,
   },
   changeTextDown: {
     fontSize: 10,
     fontWeight: "600",
     color: "#22C55E",
-    marginLeft: 2,
   },
   changeTextStable: {
     fontSize: 10,
     fontWeight: "600",
     color: "#64748B",
-    marginLeft: 2,
+  },
+  productFooter: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
   },
   lastUpdated: {
     fontSize: 11,
     color: "#94A3B8",
     fontStyle: "italic",
+  },
+  categoryText: {
+    fontSize: 11,
+    color: "#64748B",
+    textTransform: "capitalize",
+    backgroundColor: "#F1F5F9",
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  emptyContainer: {
+    alignItems: "center",
+    paddingVertical: 60,
+  },
+  emptyTitle: {
+    fontSize: 18,
+    fontWeight: "600",
+    color: "#1E293B",
+    marginBottom: 8,
+  },
+  emptySubtitle: {
+    fontSize: 14,
+    color: "#64748B",
+    textAlign: "center",
   },
 })

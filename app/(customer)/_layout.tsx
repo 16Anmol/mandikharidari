@@ -73,13 +73,13 @@ export default function CustomerLayout() {
       <Tabs.Screen
         name="mandi-rates"
         options={{
-          href: null,
+          href: null, // Keep hidden from tab bar but accessible via navigation
         }}
       />
       <Tabs.Screen
         name="mandi-details"
         options={{
-          href: null,
+          href: null, // Keep hidden from tab bar but accessible via navigation
         }}
       />
       <Tabs.Screen

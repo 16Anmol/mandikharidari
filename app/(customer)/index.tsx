@@ -69,7 +69,7 @@ const PROMO_CARDS = [
     subtitle: "Real-time price comparison",
     icon: "📊",
     color: "#8B5CF6",
-    onPress: () => router.push("/(customer)/mandi-rates"),
+    onPress: handleMandiRatesPress,
   },
 ]
 
@@ -182,6 +182,10 @@ export default function HomeScreen() {
     }
   }
 
+  const handleMandiRatesPress = () => {
+    router.push("/(customer)/mandi-rates")
+  }
+
   const handleLogout = async () => {
     await logout()
     router.replace("/(auth)/welcome")
@@ -212,7 +216,7 @@ export default function HomeScreen() {
     {
       icon: <TrendingUp size={20} color="#64748B" />,
       title: "All Mandi Rates",
-      onPress: () => router.push("/(customer)/mandi-rates"),
+      onPress: handleMandiRatesPress,
     },
     { icon: <User size={20} color="#64748B" />, title: "Profile", onPress: () => router.push("/(customer)/profile") },
     {
