@@ -1,0 +1,27 @@
+🚀 MANUAL INSTALLATION STEPS FOR TAAZABAZAAR
+
+Since you don't have package-lock.json, follow these simple steps:
+
+1. Clean the project:
+   - Delete node_modules folder (if it exists)
+   - Delete .expo folder (if it exists)
+
+2. Clear npm cache:
+   npm cache clean --force
+
+3. Install dependencies:
+   npm install --legacy-peer-deps
+
+4. Start the project:
+   npx expo start --clear
+
+5. Important: 
+   - Completely restart your Expo Go app (force close and reopen)
+   - The app should now work with SDK 53
+
+If you still get errors, try:
+   npm install --force
+
+Alternative if nothing works:
+   npx create-expo-app@latest TaazaBazaarNew --template blank-typescript
+   (Then copy your source files to the new project)
