@@ -1,6 +1,6 @@
 "use client"
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, SafeAreaView, Image, Alert, Modal } from "react-native"
-import { Plus, Minus, Trash2, ShoppingBag, MapPin, CheckCircle, Truck, CreditCard } from "lucide-react-native"
+import { Plus, Minus, Trash2, ShoppingBag, MapPin, CircleCheck as CheckCircle, Truck, CreditCard } from "lucide-react-native"
 import { useCart } from "@/contexts/CartContext"
 import { useAuth } from "@/contexts/AuthContext"
 import { createOrder } from "@/services/supabase"

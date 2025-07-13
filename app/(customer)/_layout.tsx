@@ -1,5 +1,5 @@
 import { Tabs } from "expo-router"
-import { Home, ShoppingCart, Settings, TrendingUp } from "lucide-react-native"
+import { Chrome as Home, ShoppingCart, Settings, TrendingUp } from "lucide-react-native"
 import { useCart } from "@/contexts/CartContext"
 import { View, Text, StyleSheet } from "react-native"
 
