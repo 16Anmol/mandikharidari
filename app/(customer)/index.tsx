@@ -15,21 +15,7 @@ import {
   FlatList,
   Animated,
 } from "react-native"
-import {
-  Search,
-  User,
-  Menu,
-  MapPin,
-  X,
-  LogOut,
-  Phone,
-  Mail,
-  HelpCircle,
-  TrendingUp,
-  Clock,
-  Star,
-  Truck,
-} from "lucide-react-native"
+import { Search, User, Menu, MapPin, X, LogOut, Phone, Mail, Circle as HelpCircle, TrendingUp, Clock, Star, Truck } from "lucide-react-native"
 import { router } from "expo-router"
 import { getProducts, subscribeToProducts } from "@/services/supabase"
 import type { Product } from "@/services/supabase"

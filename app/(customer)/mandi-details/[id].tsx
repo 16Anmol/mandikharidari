@@ -13,7 +13,7 @@ import {
   ActivityIndicator,
   RefreshControl,
 } from "react-native"
-import { ArrowLeft, Search, Filter, TrendingUp, TrendingDown, Minus, Clock, MapPin } from "lucide-react-native"
+import { ArrowLeft, Search, ListFilter as Filter, TrendingUp, TrendingDown, Minus, Clock, MapPin } from "lucide-react-native"
 import { router, useLocalSearchParams } from "expo-router"
 import { mockProducts } from "@/services/mockData"
 
