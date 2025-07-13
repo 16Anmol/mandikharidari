@@ -10,29 +10,19 @@ import {
   TextInput,
   RefreshControl,
   ActivityIndicator,
+  BackHandler,
 } from "react-native"
+import { useFocusEffect } from "@react-navigation/native"
 import { useRouter } from "expo-router"
 import { ArrowLeft, Search, TrendingUp, TrendingDown, MapPin, Clock } from "lucide-react-native"
 import { getProducts } from "@/services/supabase"
 import type { Product } from "@/services/supabase"
+import { useCallback } from "react"
 
 const INDIAN_STATES = [
-  "Punjab",
-  "Haryana",
-  "Uttar Pradesh",
-  "Rajasthan",
-  "Gujarat",
-  "Maharashtra",
-  "Karnataka",
-  "Tamil Nadu",
-  "Andhra Pradesh",
-  "Telangana",
-  "West Bengal",
-  "Bihar",
-  "Odisha",
-  "Madhya Pradesh",
-  "Chhattisgarh",
-  "Jharkhand",
+  "Punjab", "Haryana", "Uttar Pradesh", "Rajasthan", "Gujarat", "Maharashtra", 
+  "Karnataka", "Tamil Nadu", "Andhra Pradesh", "Telangana", "West Bengal", 
+  "Bihar", "Odisha", "Madhya Pradesh", "Chhattisgarh", "Jharkhand",
 ]
 
 const CITIES_BY_STATE: Record<string, string[]> = {
@@ -48,6 +38,7 @@ const MANDIS_BY_CITY: Record<string, string[]> = {
   Amritsar: ["Amritsar Main Mandi", "Beas Agricultural Market", "Tarn Taran Wholesale Market"],
   Ludhiana: ["Ludhiana Grain Market", "Khanna Mandi", "Samrala Agricultural Market"],
   Jalandhar: ["Jalandhar Central Mandi", "Phagwara Market", "Nakodar Agricultural Market"],
+  Jodhpur: ["Jodhpur Main Mandi", "Jodhpur Vegetable Market", "Jodhpur Wholesale Market"],
   Gurgaon: ["Gurgaon Wholesale Market", "Sector 14 Mandi", "IMT Manesar Market"],
   Faridabad: ["Faridabad Main Mandi", "Ballabhgarh Market", "NIT Faridabad Market"],
 }
@@ -75,6 +66,19 @@ export default function MandiRatesScreen() {
   const [refreshing, setRefreshing] = useState(false)
   const [loading, setLoading] = useState(false)
   const [selectedFilter, setSelectedFilter] = useState<"all" | "vegetable" | "fruit">("all")
+
+  // Handle hardware back button
+  useFocusEffect(
+    useCallback(() => {
+      const onBackPress = () => {
+        handleBack()
+        return true // Prevent default behavior
+      }
+
+      const subscription = BackHandler.addEventListener('hardwareBackPress', onBackPress)
+      return () => subscription?.remove()
+    }, [navState])
+  )
 
   useEffect(() => {
     if (navState.view === "products") {
@@ -124,6 +128,7 @@ export default function MandiRatesScreen() {
     switch (navState.view) {
       case "products":
         setNavState(prev => ({ ...prev, view: "mandis", selectedMandi: "" }))
+        setSearchQuery("")
         break
       case "mandis":
         setNavState(prev => ({ ...prev, view: "cities", selectedCity: "", selectedMandi: "" }))
@@ -159,7 +164,7 @@ export default function MandiRatesScreen() {
       case "mandis":
         return `Mandis in ${navState.selectedCity}`
       case "products":
-        return `${navState.selectedMandi}`
+        return navState.selectedMandi
       default:
         return "Mandi Rates"
     }
@@ -170,19 +175,22 @@ export default function MandiRatesScreen() {
     if (navState.selectedState) parts.push(navState.selectedState)
     if (navState.selectedCity) parts.push(navState.selectedCity)
     if (navState.selectedMandi) parts.push(navState.selectedMandi)
-    return parts.join(" > ")
+    return parts.join(" › ")
   }
 
   const getStatsData = () => {
     const totalProducts = filteredProducts.length
-    const priceUpCount = filteredProducts.filter((p) => Math.random() > 0.6).length
-    const priceDownCount = filteredProducts.filter((p) => Math.random() > 0.7).length
-
+    const priceUpCount = filteredProducts.filter(() => Math.random() > 0.6).length
+    const priceDownCount = filteredProducts.filter(() => Math.random() > 0.7).length
     return { totalProducts, priceUpCount, priceDownCount }
   }
 
   const renderStates = () => (
-    <ScrollView style={styles.listContainer} showsVerticalScrollIndicator={false}>
+    <ScrollView 
+      style={styles.listContainer} 
+      showsVerticalScrollIndicator={false}
+      contentContainerStyle={styles.scrollContent}
+    >
       <View style={styles.infoCard}>
         <MapPin size={20} color="#22C55E" />
         <Text style={styles.infoText}>Select your state to view live mandi rates</Text>
@@ -204,7 +212,11 @@ export default function MandiRatesScreen() {
   const renderCities = () => {
     const cities = CITIES_BY_STATE[navState.selectedState] || []
     return (
-      <ScrollView style={styles.listContainer} showsVerticalScrollIndicator={false}>
+      <ScrollView 
+        style={styles.listContainer} 
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.scrollContent}
+      >
         <View style={styles.infoCard}>
           <MapPin size={20} color="#22C55E" />
           <Text style={styles.infoText}>Select city in {navState.selectedState}</Text>
@@ -231,7 +243,11 @@ export default function MandiRatesScreen() {
       `${navState.selectedCity} Wholesale Market`
     ]
     return (
-      <ScrollView style={styles.listContainer} showsVerticalScrollIndicator={false}>
+      <ScrollView 
+        style={styles.listContainer} 
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.scrollContent}
+      >
         <View style={styles.infoCard}>
           <MapPin size={20} color="#22C55E" />
           <Text style={styles.infoText}>Select mandi in {navState.selectedCity}</Text>
@@ -259,6 +275,7 @@ export default function MandiRatesScreen() {
         style={styles.content}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
         showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.scrollContent}
       >
         <View style={styles.searchContainer}>
           <Search size={20} stroke="#94A3B8" strokeWidth={2} />
@@ -370,7 +387,7 @@ export default function MandiRatesScreen() {
         <View style={styles.headerContent}>
           <Text style={styles.headerTitle}>{getHeaderTitle()}</Text>
           {getBreadcrumb() && (
-            <Text style={styles.breadcrumb}>{getBreadcrumb()}</Text>
+            <Text style={styles.breadcrumb} numberOfLines={1}>{getBreadcrumb()}</Text>
           )}
         </View>
         <View style={styles.headerSpacer} />
@@ -393,6 +410,11 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     backgroundColor: "#22C55E",
     minHeight: 80,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 4,
   },
   backButton: {
     width: 40,
@@ -405,6 +427,7 @@ const styles = StyleSheet.create({
   headerContent: {
     flex: 1,
     alignItems: "center",
+    paddingHorizontal: 12,
   },
   headerTitle: {
     fontSize: 18,
@@ -423,7 +446,10 @@ const styles = StyleSheet.create({
   },
   listContainer: {
     flex: 1,
+  },
+  scrollContent: {
     padding: 20,
+    paddingBottom: 100,
   },
   infoCard: {
     flexDirection: "row",
@@ -440,6 +466,7 @@ const styles = StyleSheet.create({
     color: "#15803D",
     marginLeft: 12,
     flex: 1,
+    lineHeight: 20,
   },
   listItem: {
     flexDirection: "row",
@@ -473,11 +500,10 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     backgroundColor: "#FFFFFF",
-    marginHorizontal: 20,
-    marginVertical: 16,
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderRadius: 12,
+    marginBottom: 16,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
@@ -492,7 +518,6 @@ const styles = StyleSheet.create({
   },
   filterContainer: {
     flexDirection: "row",
-    paddingHorizontal: 20,
     marginBottom: 16,
     gap: 12,
   },
@@ -515,7 +540,6 @@ const styles = StyleSheet.create({
   },
   statsContainer: {
     flexDirection: "row",
-    paddingHorizontal: 20,
     marginBottom: 24,
     gap: 12,
   },
@@ -545,7 +569,6 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    paddingHorizontal: 20,
     marginBottom: 16,
   },
   sectionTitle: {
@@ -573,7 +596,6 @@ const styles = StyleSheet.create({
   },
   productCard: {
     backgroundColor: "#FFFFFF",
-    marginHorizontal: 20,
     marginBottom: 12,
     padding: 16,
     borderRadius: 12,

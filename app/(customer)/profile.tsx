@@ -1,7 +1,7 @@
 "use client"
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, SafeAreaView, Image, Alert } from "react-native"
 import { router } from "expo-router"
-import { ArrowLeft, MapPin, Phone, Mail, History, Settings, LogOut } from "lucide-react-native"
+import { ArrowLeft, MapPin, Phone, Mail, History, Settings, LogOut, Edit, Plus } from "lucide-react-native"
 import { useAuth } from "@/contexts/AuthContext"
 
 export default function ProfileScreen() {
@@ -21,7 +21,27 @@ export default function ProfileScreen() {
     ])
   }
 
+  const handleEditProfile = () => {
+    Alert.alert("Edit Profile", "Profile editing feature will be available soon!")
+  }
+
+  const handleAddAddress = () => {
+    Alert.alert("Add Address", "Add new address feature will be available soon!")
+  }
+
   const menuItems = [
+    {
+      icon: <Edit size={24} stroke="#64748B" strokeWidth={2} />,
+      title: "Edit Profile",
+      subtitle: "Update your personal information",
+      onPress: handleEditProfile,
+    },
+    {
+      icon: <Plus size={24} stroke="#64748B" strokeWidth={2} />,
+      title: "Add New Address",
+      subtitle: "Add delivery addresses",
+      onPress: handleAddAddress,
+    },
     {
       icon: <History size={24} stroke="#64748B" strokeWidth={2} />,
       title: "Order History",
@@ -57,6 +77,9 @@ export default function ProfileScreen() {
         <View style={styles.profileSection}>
           <View style={styles.avatarContainer}>
             <Image source={{ uri: "/placeholder.svg?height=100&width=100&text=User" }} style={styles.avatar} />
+            <TouchableOpacity style={styles.editAvatarButton} onPress={handleEditProfile}>
+              <Edit size={16} color="#FFFFFF" />
+            </TouchableOpacity>
           </View>
           <Text style={styles.userName}>{user?.name || "User"}</Text>
           <Text style={styles.userRole}>Customer</Text>
@@ -163,6 +186,20 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     borderWidth: 3,
     borderColor: "#22C55E",
+    position: "relative",
+  },
+  editAvatarButton: {
+    position: "absolute",
+    bottom: 0,
+    right: 0,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: "#22C55E",
+    justifyContent: "center",
+    alignItems: "center",
+    borderWidth: 2,
+    borderColor: "#FFFFFF",
   },
   avatar: {
     width: 80,

@@ -102,8 +102,12 @@ export default function CartScreen() {
       })
 
       setShowDeliveryOptions(false)
-      setShowConfirmation(true)
       clearCart()
+      
+      // Show quick success message
+      setTimeout(() => {
+        setShowConfirmation(true)
+      }, 100)
     } catch (error) {
       console.error("Failed to place order:", error)
       Alert.alert("Error", "Failed to place order. Please try again.")
@@ -268,7 +272,7 @@ export default function CartScreen() {
             <View style={styles.successIcon}>
               <CheckCircle size={64} color="#22C55E" />
             </View>
-            <Text style={styles.confirmationTitle}>🎉 Yay! Order Placed!</Text>
+            <Text style={styles.confirmationTitle}>🎉 Yay! Order Placed Successfully!</Text>
             <Text style={styles.confirmationMessage}>
               Your order has been placed successfully. Thank you for shopping with MandiKharidari!
             </Text>
@@ -618,6 +622,7 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     color: "#1E293B",
     marginBottom: 12,
+    textAlign: "center",
   },
   confirmationMessage: {
     fontSize: 16,
