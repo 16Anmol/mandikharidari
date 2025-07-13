@@ -1,7 +1,7 @@
 "use client"
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, SafeAreaView, Image, Alert } from "react-native"
 import { router } from "expo-router"
-import { ArrowLeft, MapPin, Phone, Mail, History, Settings, LogOut, Edit, Plus } from "lucide-react-native"
+import { ArrowLeft, MapPin, Phone, Mail, History, Settings, LogOut, LocationEdit as Edit, Plus } from "lucide-react-native"
 import { useAuth } from "@/contexts/AuthContext"
 
 export default function ProfileScreen() {
