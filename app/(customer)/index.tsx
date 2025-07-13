@@ -27,6 +27,10 @@ import type { LocationDetails } from "@/services/googleMaps"
 const { width } = Dimensions.get("window")
 const CARD_WIDTH = width - 40
 
+function handleMandiRatesPress() {
+  router.push("/mandi-rates")
+}
+
 const PROMO_CARDS = [
   {
     id: 1,
@@ -65,28 +69,28 @@ const QUICK_ACTIONS = [
     title: "Fresh Vegetables",
     icon: "🥬",
     color: "#22C55E",
-    onPress: () => router.push("/(customer)/category/vegetables"),
+    onPress: () => router.push("/category/vegetables"),
   },
   {
     id: 2,
     title: "Fresh Fruits",
     icon: "🍎",
     color: "#EF4444",
-    onPress: () => router.push("/(customer)/category/fruits"),
+    onPress: () => router.push("/category/fruits"),
   },
   {
     id: 3,
     title: "Seasonal Picks",
     icon: "🌟",
     color: "#F59E0B",
-    onPress: () => router.push("/(customer)/category/seasonal"),
+    onPress: () => router.push("/category/seasonal"),
   },
   {
     id: 4,
     title: "All Products",
     icon: "🛒",
     color: "#8B5CF6",
-    onPress: () => router.push("/(customer)/category/all"),
+    onPress: () => router.push("/category/all"),
   },
 ]
 
@@ -164,12 +168,12 @@ export default function HomeScreen() {
 
   const handleSearch = () => {
     if (searchQuery.trim()) {
-      router.push(`/(customer)/search?q=${encodeURIComponent(searchQuery)}`)
+      router.push(`/search?q=${encodeURIComponent(searchQuery)}`)
     }
   }
 
   const handleMandiRatesPress = () => {
-    router.push("/(customer)/mandi-rates")
+    router.push("/mandi-rates")
   }
 
   const handleLogout = async () => {
@@ -204,16 +208,16 @@ export default function HomeScreen() {
       title: "All Mandi Rates",
       onPress: handleMandiRatesPress,
     },
-    { icon: <User size={20} color="#64748B" />, title: "Profile", onPress: () => router.push("/(customer)/profile") },
+    { icon: <User size={20} color="#64748B" />, title: "Profile", onPress: () => router.push("/profile") },
     {
       icon: <Clock size={20} color="#64748B" />,
       title: "Order History",
-      onPress: () => router.push("/(customer)/order-history"),
+      onPress: () => router.push("/order-history"),
     },
     {
       icon: <Search size={20} color="#64748B" />,
       title: "View All Products",
-      onPress: () => router.push("/(customer)/category/all"),
+      onPress: () => router.push("/category/all"),
     },
     { icon: <Phone size={20} color="#64748B" />, title: "Contact", onPress: () => {} },
     { icon: <HelpCircle size={20} color="#64748B" />, title: "FAQ", onPress: () => {} },
@@ -311,7 +315,7 @@ export default function HomeScreen() {
             placeholderTextColor="#94A3B8"
           />
         </View>
-        <TouchableOpacity style={styles.profileButton} onPress={() => router.push("/(customer)/profile")}>
+        <TouchableOpacity style={styles.profileButton} onPress={() => router.push("/profile")}>
           <User size={20} stroke="#22C55E" strokeWidth={2} />
         </TouchableOpacity>
       </View>
@@ -390,13 +394,13 @@ export default function HomeScreen() {
         {renderProductGrid(
           products.filter((p) => p.type === "vegetable").slice(0, 6),
           "Fresh Vegetables",
-          "/(customer)/category/vegetables",
+          "/category/vegetables",
         )}
 
         {renderProductGrid(
           products.filter((p) => p.type === "fruit").slice(0, 6),
           "Fresh Fruits",
-          "/(customer)/category/fruits",
+          "/category/fruits",
         )}
 
         {/* Bottom Spacing for Tab Bar */}
