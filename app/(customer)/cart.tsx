@@ -1,12 +1,24 @@
 "use client"
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, SafeAreaView, Image, Alert, Modal } from "react-native"
-import { Plus, Minus, Trash2, ShoppingBag, MapPin, CircleCheck as CheckCircle, Truck, CreditCard } from "lucide-react-native"
+
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  TouchableOpacity,
+  SafeAreaView,
+  Image,
+  Alert,
+  Modal,
+  Animated,
+} from "react-native"
+import { Plus, Minus, Trash2, ShoppingBag, MapPin, CheckCircle, Truck, CreditCard, Sparkles } from "lucide-react-native"
 import { useCart } from "@/contexts/CartContext"
 import { useAuth } from "@/contexts/AuthContext"
 import { createOrder } from "@/services/supabase"
 import { router } from "expo-router"
 import * as Location from "expo-location"
-import { useState } from "react"
+import { useState, useRef } from "react"
 
 export default function CartScreen() {
   const { items, total, updateQuantity, removeItem, clearCart } = useCart()
@@ -16,6 +28,12 @@ export default function CartScreen() {
   const [paymentMethod, setPaymentMethod] = useState<"cod" | "online">("cod")
   const [showConfirmation, setShowConfirmation] = useState(false)
   const [orderDetails, setOrderDetails] = useState<any>(null)
+  const [isPlacingOrder, setIsPlacingOrder] = useState(false)
+
+  // Animation values
+  const scaleAnim = useRef(new Animated.Value(1)).current
+  const fadeAnim = useRef(new Animated.Value(0)).current
+  const slideAnim = useRef(new Animated.Value(300)).current
 
   const handleQuantityChange = (id: string, change: number) => {
     const item = items.find((i) => i.id === id)
@@ -58,19 +76,38 @@ export default function CartScreen() {
 
   const handlePlaceOrderClick = () => {
     if (!user) {
-      Alert.alert("Error", "Please login to place order")
+      Alert.alert("Login Required", "Please login to place your order", [
+        { text: "Cancel", style: "cancel" },
+        { text: "Login", onPress: () => router.push("/(auth)/login") },
+      ])
       return
     }
 
     if (items.length === 0) {
-      Alert.alert("Error", "Your cart is empty")
+      Alert.alert("Empty Cart", "Please add some items to your cart first")
       return
     }
+
+    // Animate button press
+    Animated.sequence([
+      Animated.timing(scaleAnim, {
+        toValue: 0.95,
+        duration: 100,
+        useNativeDriver: true,
+      }),
+      Animated.timing(scaleAnim, {
+        toValue: 1,
+        duration: 100,
+        useNativeDriver: true,
+      }),
+    ]).start()
 
     setShowDeliveryOptions(true)
   }
 
   const handlePlaceOrder = async () => {
+    setIsPlacingOrder(true)
+
     try {
       const location = orderType === "delivery" ? await getCurrentLocation() : "Takeaway from Store"
       const orderId = `MK${Date.now()}`
@@ -103,20 +140,50 @@ export default function CartScreen() {
 
       setShowDeliveryOptions(false)
       clearCart()
-      
-      // Show quick success message
+
+      // Show success animation
       setTimeout(() => {
         setShowConfirmation(true)
-      }, 100)
+        startSuccessAnimation()
+      }, 300)
     } catch (error) {
       console.error("Failed to place order:", error)
-      Alert.alert("Error", "Failed to place order. Please try again.")
+      Alert.alert("Order Failed", "Failed to place order. Please try again.")
+    } finally {
+      setIsPlacingOrder(false)
     }
   }
 
+  const startSuccessAnimation = () => {
+    // Reset animations
+    fadeAnim.setValue(0)
+    slideAnim.setValue(300)
+
+    // Start animations
+    Animated.parallel([
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 500,
+        useNativeDriver: true,
+      }),
+      Animated.spring(slideAnim, {
+        toValue: 0,
+        tension: 100,
+        friction: 8,
+        useNativeDriver: true,
+      }),
+    ]).start()
+  }
+
   const handleConfirmationClose = () => {
-    setShowConfirmation(false)
-    router.push("/(customer)")
+    Animated.timing(fadeAnim, {
+      toValue: 0,
+      duration: 300,
+      useNativeDriver: true,
+    }).start(() => {
+      setShowConfirmation(false)
+      router.push("/(customer)")
+    })
   }
 
   if (items.length === 0) {
@@ -126,7 +193,7 @@ export default function CartScreen() {
           <Text style={styles.headerTitle}>Shopping Cart</Text>
         </View>
         <View style={styles.emptyContainer}>
-          <ShoppingBag size={64} stroke="#CBD5E1" strokeWidth={1} />
+          <ShoppingBag size={80} stroke="#CBD5E1" strokeWidth={1.5} />
           <Text style={styles.emptyTitle}>Your cart is empty</Text>
           <Text style={styles.emptySubtitle}>Add some fresh vegetables and fruits to get started</Text>
           <TouchableOpacity style={styles.shopButton} onPress={() => router.push("/(customer)")}>
@@ -150,8 +217,19 @@ export default function CartScreen() {
         contentContainerStyle={styles.scrollContent}
       >
         <View style={styles.cartItems}>
-          {items.map((item) => (
-            <View key={item.id} style={styles.cartItem}>
+          {items.map((item, index) => (
+            <Animated.View
+              key={item.id}
+              style={[
+                styles.cartItem,
+                {
+                  opacity: fadeAnim.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [0.5, 1],
+                  }),
+                },
+              ]}
+            >
               <Image source={{ uri: item.image || "/placeholder.svg?height=80&width=80" }} style={styles.itemImage} />
               <View style={styles.itemInfo}>
                 <Text style={styles.itemName}>{item.name}</Text>
@@ -160,15 +238,23 @@ export default function CartScreen() {
                 </Text>
                 <View style={styles.itemControls}>
                   <View style={styles.quantitySelector}>
-                    <TouchableOpacity style={styles.quantityButton} onPress={() => handleQuantityChange(item.id, -0.5)}>
+                    <TouchableOpacity
+                      style={styles.quantityButton}
+                      onPress={() => handleQuantityChange(item.id, -0.5)}
+                      activeOpacity={0.7}
+                    >
                       <Minus size={16} stroke="#22C55E" strokeWidth={2} />
                     </TouchableOpacity>
                     <Text style={styles.quantityText}>{item.quantity}</Text>
-                    <TouchableOpacity style={styles.quantityButton} onPress={() => handleQuantityChange(item.id, 0.5)}>
+                    <TouchableOpacity
+                      style={styles.quantityButton}
+                      onPress={() => handleQuantityChange(item.id, 0.5)}
+                      activeOpacity={0.7}
+                    >
                       <Plus size={16} stroke="#22C55E" strokeWidth={2} />
                     </TouchableOpacity>
                   </View>
-                  <TouchableOpacity style={styles.removeButton} onPress={() => removeItem(item.id)}>
+                  <TouchableOpacity style={styles.removeButton} onPress={() => removeItem(item.id)} activeOpacity={0.7}>
                     <Trash2 size={16} stroke="#EF4444" strokeWidth={2} />
                   </TouchableOpacity>
                 </View>
@@ -176,20 +262,28 @@ export default function CartScreen() {
               <View style={styles.itemTotal}>
                 <Text style={styles.itemTotalPrice}>₹{(item.price * item.quantity).toFixed(2)}</Text>
               </View>
-            </View>
+            </Animated.View>
           ))}
         </View>
       </ScrollView>
 
+      {/* Fixed Bottom Footer */}
       <View style={styles.footer}>
         <View style={styles.totalContainer}>
           <Text style={styles.totalLabel}>Total Amount:</Text>
           <Text style={styles.totalPrice}>₹{total.toFixed(2)}</Text>
         </View>
 
-        <TouchableOpacity style={styles.checkoutButton} onPress={handlePlaceOrderClick}>
-          <Text style={styles.checkoutText}>Place Order</Text>
-        </TouchableOpacity>
+        <Animated.View style={{ transform: [{ scale: scaleAnim }] }}>
+          <TouchableOpacity
+            style={[styles.checkoutButton, isPlacingOrder && styles.checkoutButtonDisabled]}
+            onPress={handlePlaceOrderClick}
+            disabled={isPlacingOrder}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.checkoutText}>{isPlacingOrder ? "Placing Order..." : "Place Order"}</Text>
+          </TouchableOpacity>
+        </Animated.View>
       </View>
 
       {/* Delivery Options Modal */}
@@ -204,6 +298,7 @@ export default function CartScreen() {
                 <TouchableOpacity
                   style={[styles.optionButton, orderType === "delivery" && styles.optionButtonActive]}
                   onPress={() => setOrderType("delivery")}
+                  activeOpacity={0.8}
                 >
                   <Truck size={20} color={orderType === "delivery" ? "#FFFFFF" : "#64748B"} />
                   <Text style={[styles.optionButtonText, orderType === "delivery" && styles.optionButtonTextActive]}>
@@ -213,6 +308,7 @@ export default function CartScreen() {
                 <TouchableOpacity
                   style={[styles.optionButton, orderType === "takeaway" && styles.optionButtonActive]}
                   onPress={() => setOrderType("takeaway")}
+                  activeOpacity={0.8}
                 >
                   <ShoppingBag size={20} color={orderType === "takeaway" ? "#FFFFFF" : "#64748B"} />
                   <Text style={[styles.optionButtonText, orderType === "takeaway" && styles.optionButtonTextActive]}>
@@ -228,6 +324,7 @@ export default function CartScreen() {
                 <TouchableOpacity
                   style={[styles.optionButton, paymentMethod === "cod" && styles.optionButtonActive]}
                   onPress={() => setPaymentMethod("cod")}
+                  activeOpacity={0.8}
                 >
                   <CreditCard size={20} color={paymentMethod === "cod" ? "#FFFFFF" : "#64748B"} />
                   <Text style={[styles.optionButtonText, paymentMethod === "cod" && styles.optionButtonTextActive]}>
@@ -237,6 +334,7 @@ export default function CartScreen() {
                 <TouchableOpacity
                   style={[styles.optionButton, paymentMethod === "online" && styles.optionButtonActive]}
                   onPress={() => setPaymentMethod("online")}
+                  activeOpacity={0.8}
                 >
                   <CreditCard size={20} color={paymentMethod === "online" ? "#FFFFFF" : "#64748B"} />
                   <Text style={[styles.optionButtonText, paymentMethod === "online" && styles.optionButtonTextActive]}>
@@ -254,27 +352,40 @@ export default function CartScreen() {
             )}
 
             <View style={styles.modalButtons}>
-              <TouchableOpacity style={styles.cancelButton} onPress={() => setShowDeliveryOptions(false)}>
+              <TouchableOpacity
+                style={styles.cancelButton}
+                onPress={() => setShowDeliveryOptions(false)}
+                activeOpacity={0.8}
+              >
                 <Text style={styles.cancelButtonText}>Cancel</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={styles.confirmButton} onPress={handlePlaceOrder}>
-                <Text style={styles.confirmButtonText}>Confirm Order</Text>
+              <TouchableOpacity
+                style={[styles.confirmButton, isPlacingOrder && styles.confirmButtonDisabled]}
+                onPress={handlePlaceOrder}
+                disabled={isPlacingOrder}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.confirmButtonText}>{isPlacingOrder ? "Placing..." : "Confirm Order"}</Text>
               </TouchableOpacity>
             </View>
           </View>
         </View>
       </Modal>
 
-      {/* Order Confirmation Modal */}
-      <Modal visible={showConfirmation} animationType="slide" transparent>
-        <View style={styles.confirmationOverlay}>
-          <View style={styles.confirmationContent}>
-            <View style={styles.successIcon}>
-              <CheckCircle size={64} color="#22C55E" />
+      {/* Order Success Modal */}
+      <Modal visible={showConfirmation} animationType="none" transparent>
+        <Animated.View style={[styles.confirmationOverlay, { opacity: fadeAnim }]}>
+          <Animated.View style={[styles.confirmationContent, { transform: [{ translateY: slideAnim }] }]}>
+            <View style={styles.successIconContainer}>
+              <CheckCircle size={80} color="#22C55E" />
+              <Sparkles size={24} color="#FFD700" style={styles.sparkle1} />
+              <Sparkles size={20} color="#FFD700" style={styles.sparkle2} />
+              <Sparkles size={16} color="#FFD700" style={styles.sparkle3} />
             </View>
-            <Text style={styles.confirmationTitle}>🎉 Yay! Order Placed Successfully!</Text>
+
+            <Text style={styles.confirmationTitle}>🎉 Order Placed Successfully!</Text>
             <Text style={styles.confirmationMessage}>
-              Your order has been placed successfully. Thank you for shopping with MandiKharidari!
+              Yay! Your order has been placed successfully. Thank you for choosing MandiKharidari!
             </Text>
 
             {orderDetails && (
@@ -286,31 +397,31 @@ export default function CartScreen() {
                 <View style={styles.orderDetailRow}>
                   <Text style={styles.orderDetailLabel}>Order Type:</Text>
                   <Text style={styles.orderDetailValue}>
-                    {orderDetails.orderType === "delivery" ? "Home Delivery" : "Takeaway"}
+                    {orderDetails.orderType === "delivery" ? "🚚 Home Delivery" : "🏪 Takeaway"}
                   </Text>
                 </View>
                 <View style={styles.orderDetailRow}>
                   <Text style={styles.orderDetailLabel}>Payment:</Text>
                   <Text style={styles.orderDetailValue}>
-                    {orderDetails.paymentMethod === "cod" ? "Cash on Delivery" : "Online Payment"}
+                    {orderDetails.paymentMethod === "cod" ? "💵 Cash on Delivery" : "💳 Online Payment"}
                   </Text>
                 </View>
                 <View style={styles.orderDetailRow}>
                   <Text style={styles.orderDetailLabel}>Total Amount:</Text>
-                  <Text style={styles.orderDetailValue}>₹{orderDetails.total.toFixed(2)}</Text>
+                  <Text style={[styles.orderDetailValue, styles.totalAmount]}>₹{orderDetails.total.toFixed(2)}</Text>
                 </View>
                 <View style={styles.orderDetailRow}>
                   <Text style={styles.orderDetailLabel}>Estimated Time:</Text>
-                  <Text style={styles.orderDetailValue}>{orderDetails.estimatedTime}</Text>
+                  <Text style={styles.orderDetailValue}>⏰ {orderDetails.estimatedTime}</Text>
                 </View>
               </View>
             )}
 
-            <TouchableOpacity style={styles.confirmationButton} onPress={handleConfirmationClose}>
+            <TouchableOpacity style={styles.confirmationButton} onPress={handleConfirmationClose} activeOpacity={0.8}>
               <Text style={styles.confirmationButtonText}>Continue Shopping</Text>
             </TouchableOpacity>
-          </View>
-        </View>
+          </Animated.View>
+        </Animated.View>
       </Modal>
     </SafeAreaView>
   )
@@ -326,10 +437,7 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     backgroundColor: "#FFFFFF",
     shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
+    shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
     elevation: 3,
@@ -356,19 +464,16 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   cartItem: {
-    flexDirection: "row",
-    backgroundColor: "#FFFFFF",
-    borderRadius: 16,
-    padding: 16,
-    shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
+  flexDirection: "row",
+  backgroundColor: "#FFFFFF", // ← Add this
+  borderRadius: 16,
+  padding: 16,
+  shadowColor: "#000",        // ← Add for better elevation on Android
+  shadowOffset: { width: 0, height: 2 },
+  shadowOpacity: 0.1,
+  shadowRadius: 4,
+  elevation: 3,
+},
   itemImage: {
     width: 80,
     height: 80,
@@ -400,9 +505,9 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   quantityButton: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
     backgroundColor: "#F0FDF4",
     borderWidth: 1,
     borderColor: "#22C55E",
@@ -410,17 +515,17 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   quantityText: {
-    fontSize: 14,
+    fontSize: 16,
     fontWeight: "600",
     color: "#1E293B",
-    marginHorizontal: 12,
+    marginHorizontal: 16,
     minWidth: 30,
     textAlign: "center",
   },
   removeButton: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     backgroundColor: "#FEF2F2",
     justifyContent: "center",
     alignItems: "center",
@@ -430,7 +535,7 @@ const styles = StyleSheet.create({
     alignItems: "flex-end",
   },
   itemTotalPrice: {
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: "700",
     color: "#22C55E",
   },
@@ -438,12 +543,9 @@ const styles = StyleSheet.create({
     backgroundColor: "#FFFFFF",
     paddingHorizontal: 20,
     paddingVertical: 20,
-    paddingBottom: 90, // Increased padding for better spacing
+    paddingBottom: 20,
     shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: -2,
-    },
+    shadowOffset: { width: 0, height: -2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
     elevation: 5,
@@ -452,7 +554,11 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 16,
+    marginBottom: 20,
+    paddingVertical: 16,
+    paddingHorizontal: 16,
+    backgroundColor: "#F8FAFC",
+    borderRadius: 12,
   },
   totalLabel: {
     fontSize: 18,
@@ -460,19 +566,28 @@ const styles = StyleSheet.create({
     color: "#1E293B",
   },
   totalPrice: {
-    fontSize: 20,
+    fontSize: 22,
     fontWeight: "700",
     color: "#22C55E",
   },
   checkoutButton: {
     backgroundColor: "#22C55E",
-    borderRadius: 12,
-    paddingVertical: 16,
+    borderRadius: 16,
+    paddingVertical: 18,
     alignItems: "center",
+    shadowColor: "#22C55E",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  checkoutButtonDisabled: {
+    backgroundColor: "#94A3B8",
+    shadowOpacity: 0.1,
   },
   checkoutText: {
-    fontSize: 16,
-    fontWeight: "600",
+    fontSize: 18,
+    fontWeight: "700",
     color: "#FFFFFF",
   },
   emptyContainer: {
@@ -482,10 +597,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 40,
   },
   emptyTitle: {
-    fontSize: 20,
-    fontWeight: "600",
+    fontSize: 24,
+    fontWeight: "700",
     color: "#1E293B",
-    marginTop: 16,
+    marginTop: 20,
     marginBottom: 8,
   },
   emptySubtitle: {
@@ -493,13 +608,13 @@ const styles = StyleSheet.create({
     color: "#64748B",
     textAlign: "center",
     lineHeight: 24,
-    marginBottom: 24,
+    marginBottom: 32,
   },
   shopButton: {
     backgroundColor: "#22C55E",
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    borderRadius: 8,
+    paddingHorizontal: 32,
+    paddingVertical: 16,
+    borderRadius: 12,
   },
   shopButtonText: {
     fontSize: 16,
@@ -595,6 +710,9 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     alignItems: "center",
   },
+  confirmButtonDisabled: {
+    backgroundColor: "#94A3B8",
+  },
   confirmButtonText: {
     fontSize: 16,
     fontWeight: "600",
@@ -602,23 +720,39 @@ const styles = StyleSheet.create({
   },
   confirmationOverlay: {
     flex: 1,
-    backgroundColor: "rgba(0,0,0,0.5)",
+    backgroundColor: "rgba(0,0,0,0.6)",
     justifyContent: "center",
     alignItems: "center",
   },
   confirmationContent: {
     backgroundColor: "#FFFFFF",
-    borderRadius: 20,
-    padding: 24,
+    borderRadius: 24,
+    padding: 32,
     width: "90%",
     maxWidth: 400,
     alignItems: "center",
   },
-  successIcon: {
-    marginBottom: 16,
+  successIconContainer: {
+    position: "relative",
+    marginBottom: 20,
+  },
+  sparkle1: {
+    position: "absolute",
+    top: -10,
+    right: -10,
+  },
+  sparkle2: {
+    position: "absolute",
+    bottom: -5,
+    left: -15,
+  },
+  sparkle3: {
+    position: "absolute",
+    top: 20,
+    left: -20,
   },
   confirmationTitle: {
-    fontSize: 24,
+    fontSize: 26,
     fontWeight: "700",
     color: "#1E293B",
     marginBottom: 12,
@@ -633,38 +767,49 @@ const styles = StyleSheet.create({
   },
   orderDetailsContainer: {
     backgroundColor: "#F8FAFC",
-    borderRadius: 12,
-    padding: 16,
+    borderRadius: 16,
+    padding: 20,
     width: "100%",
     marginBottom: 24,
   },
   orderDetailRow: {
     flexDirection: "row",
     justifyContent: "space-between",
-    paddingVertical: 8,
+    paddingVertical: 10,
     borderBottomWidth: 1,
     borderBottomColor: "#E2E8F0",
   },
   orderDetailLabel: {
     fontSize: 14,
     color: "#64748B",
+    fontWeight: "500",
   },
   orderDetailValue: {
     fontSize: 14,
     fontWeight: "600",
     color: "#1E293B",
   },
+  totalAmount: {
+    color: "#22C55E",
+    fontSize: 16,
+    fontWeight: "700",
+  },
   confirmationButton: {
     backgroundColor: "#22C55E",
-    borderRadius: 12,
-    paddingVertical: 16,
-    paddingHorizontal: 24,
+    borderRadius: 16,
+    paddingVertical: 18,
+    paddingHorizontal: 32,
     width: "100%",
     alignItems: "center",
+    shadowColor: "#22C55E",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
   },
   confirmationButtonText: {
-    fontSize: 16,
-    fontWeight: "600",
+    fontSize: 18,
+    fontWeight: "700",
     color: "#FFFFFF",
   },
 })
