@@ -82,12 +82,7 @@ export default function CustomerLayout() {
           href: null,
         }}
       />
-      <Tabs.Screen
-        name="mandi-details"
-        options={{
-          href: null,
-        }}
-      />
+         
       <Tabs.Screen
         name="profile"
         options={{
