@@ -21,7 +21,7 @@ import { useAuth } from "@/contexts/AuthContext"
 
 export default function SettingsScreen() {
   const [notifications, setNotifications] = useState(true)
-  const [darkMode, setDarkMode] = useState(false)
+
   const [showUserDetails, setShowUserDetails] = useState(false)
   const { user, logout } = useAuth()
 
@@ -47,14 +47,7 @@ export default function SettingsScreen() {
       value: notifications,
       onToggle: setNotifications,
     },
-    {
-      icon: <Moon size={24} stroke="#64748B" strokeWidth={2} />,
-      title: "Dark Mode",
-      subtitle: "Switch to dark theme",
-      type: "switch",
-      value: darkMode,
-      onToggle: setDarkMode,
-    },
+   
     {
       icon: <Globe size={24} stroke="#64748B" strokeWidth={2} />,
       title: "Language",

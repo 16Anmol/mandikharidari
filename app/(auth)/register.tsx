@@ -111,29 +111,7 @@ export default function RegisterScreen() {
             </View>
 
             {/* Location Section */}
-            <View style={styles.locationSection}>
-              <View style={styles.locationHeader}>
-                <MapPin size={20} color="#22C55E" />
-                <Text style={styles.locationTitle}>Your Location</Text>
-                <TouchableOpacity style={styles.selectButton} onPress={() => setShowLocationPicker(true)}>
-                  <Text style={styles.selectButtonText}>Select on Map</Text>
-                </TouchableOpacity>
-              </View>
-
-              {selectedLocation ? (
-                <View style={styles.selectedLocationContainer}>
-                  <Text style={styles.selectedLocationText}>{selectedLocation.address}</Text>
-                  <Text style={styles.selectedLocationDetails}>
-                    {selectedLocation.city}, {selectedLocation.state} {selectedLocation.pincode}
-                  </Text>
-                </View>
-              ) : (
-                <TouchableOpacity style={styles.locationPlaceholder} onPress={() => setShowLocationPicker(true)}>
-                  <MapPin size={24} color="#94A3B8" />
-                  <Text style={styles.locationPlaceholderText}>Tap to select your location on map</Text>
-                </TouchableOpacity>
-              )}
-            </View>
+            
 
             <View style={styles.inputContainer}>
               <Lock size={20} color="#22C55E" style={styles.inputIcon} />

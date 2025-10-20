@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, JSXElementConstructor, Key, ReactElement, ReactNode, ReactPortal } from "react"
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, SafeAreaView, RefreshControl } from "react-native"
 import { router } from "expo-router"
 import { ArrowLeft, Package, MapPin, CheckCircle, Truck } from "lucide-react-native"
@@ -52,9 +52,9 @@ export default function OrderHistoryScreen() {
 
   useEffect(() => {
     loadOrders()
-    const subscription = subscribeToOrders((updatedOrders) => {
+    const subscription = subscribeToOrders((updatedOrders: any[]) => {
       // Filter orders for current user
-      const userOrders = updatedOrders.filter((order) => order.user_id === user?.id)
+      const userOrders = updatedOrders.filter((order: { user_id: string | undefined }) => order.user_id === user?.id)
       setOrders(userOrders)
     })
     return () => subscription.unsubscribe()
@@ -64,7 +64,7 @@ export default function OrderHistoryScreen() {
     try {
       const data = await getOrders()
       // Filter orders for current user
-      const userOrders = data.filter((order) => order.user_id === user?.id)
+      const userOrders = data.filter((order: { user_id: string | undefined }) => order.user_id === user?.id)
       setOrders(userOrders)
     } catch (error) {
       console.error("Failed to load orders:", error)
@@ -149,7 +149,7 @@ export default function OrderHistoryScreen() {
 
                 <View style={styles.itemsContainer}>
                   <Text style={styles.itemsTitle}>Items ({order.items.length})</Text>
-                  {order.items.map((item, index) => (
+                  {order.items.map((item: { product_name: string | number | bigint | boolean | ReactElement<unknown, string | JSXElementConstructor<any>> | Iterable<ReactNode> | ReactPortal | Promise<string | number | bigint | boolean | ReactPortal | ReactElement<unknown, string | JSXElementConstructor<any>> | Iterable<ReactNode> | null | undefined> | null | undefined; quantity: string | number | bigint | boolean | ReactElement<unknown, string | JSXElementConstructor<any>> | Iterable<ReactNode> | ReactPortal | Promise<string | number | bigint | boolean | ReactPortal | ReactElement<unknown, string | JSXElementConstructor<any>> | Iterable<ReactNode> | null | undefined> | null | undefined; unit: string | number | bigint | boolean | ReactElement<unknown, string | JSXElementConstructor<any>> | Iterable<ReactNode> | ReactPortal | Promise<string | number | bigint | boolean | ReactPortal | ReactElement<unknown, string | JSXElementConstructor<any>> | Iterable<ReactNode> | null | undefined> | null | undefined; price: string | number | bigint | boolean | ReactElement<unknown, string | JSXElementConstructor<any>> | Iterable<ReactNode> | ReactPortal | Promise<string | number | bigint | boolean | ReactPortal | ReactElement<unknown, string | JSXElementConstructor<any>> | Iterable<ReactNode> | null | undefined> | null | undefined }, index: Key | null | undefined) => (
                     <View key={index} style={styles.itemRow}>
                       <Text style={styles.itemName}>{item.product_name}</Text>
                       <Text style={styles.itemQuantity}>

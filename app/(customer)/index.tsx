@@ -1,469 +1,273 @@
 "use client"
-import { useState, useEffect, useRef } from "react"
+
+import { useState, useRef } from "react"
 import {
   View,
   Text,
-  StyleSheet,
   ScrollView,
+  StyleSheet,
   TouchableOpacity,
-  SafeAreaView,
-  TextInput,
   Image,
-  RefreshControl,
-  Modal,
-  Dimensions,
   FlatList,
-  Animated,
+  Dimensions,
+  SafeAreaView,
 } from "react-native"
-import {
-  Search,
-  User,
-  Menu,
-  MapPin,
-  X,
-  LogOut,
-  Phone,
-  Mail,
-  HelpCircle,
-  TrendingUp,
-  Clock,
-  Star,
-  Truck,
-} from "lucide-react-native"
 import { router } from "expo-router"
-import { getProducts, subscribeToProducts } from "@/services/supabase"
-import type { Product } from "@/services/supabase"
-import { useCart } from "@/contexts/CartContext"
-import { useAuth } from "@/contexts/AuthContext"
-import LocationPicker from "@/components/LocationPicker"
-import type { LocationDetails } from "@/services/googleMaps"
+import { Ionicons } from "@expo/vector-icons"
+import HamburgerMenu from "@/components/HamburgerMenu"
 
 const { width } = Dimensions.get("window")
-const CARD_WIDTH = width - 40
 
-const PROMO_CARDS = [
+// Mock promo data
+const promoImages = [
   {
     id: 1,
-    title: "Fastest Delivery",
-    subtitle: "Get fresh groceries in 30 minutes",
-    icon: "🚚",
-    color: "#22C55E",
+    image: require("../../assets/tagline.png"),
   },
   {
     id: 2,
-    title: "Economical Rates",
-    subtitle: "Best prices compared to market",
-    icon: "💰",
-    color: "#3B82F6",
+    image: require("../../assets/family.png"),
   },
   {
     id: 3,
-    title: "Trusted by Many",
-    subtitle: "10,000+ happy customers",
-    icon: "⭐",
-    color: "#F59E0B",
-  },
-  {
-    id: 4,
-    title: "Live Mandi Rates",
-    subtitle: "Real-time price comparison",
-    icon: "📊",
-    color: "#8B5CF6",
-    onPress: () => router.push("/(customer)/mandi-rates"),
+    image: require("../../assets/promo.png"),
   },
 ]
 
-const QUICK_ACTIONS = [
+// Mock categories data
+const categories = [
+  { id: 1, name: "Vegetables", icon: "🥬", slug: "vegetables" },
+  { id: 2, name: "Fruits", icon: "🍎",  slug: "fruits" },
+]
+
+// Featured products with actual vegetable images
+const featuredProducts = [
   {
     id: 1,
-    title: "Fresh Vegetables",
-    icon: "🥬",
-    color: "#22C55E",
-    onPress: () => router.push("/(customer)/category/vegetables"),
+    name: "Fresh Tomatoes",
+    price: 40,
+    unit: "per kg",
+    image: "https://upload.wikimedia.org/wikipedia/commons/8/89/Tomato_je.jpg",
+    rating: 4.5,
+    inStock: true,
   },
   {
     id: 2,
-    title: "Fresh Fruits",
-    icon: "🍎",
-    color: "#EF4444",
-    onPress: () => router.push("/(customer)/category/fruits"),
+    name: "Organic Onions",
+    price: 35,
+    unit: "per kg",
+    image: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSh-YViUCvKM3biv4ndaDha0-Ox3taOMxr26w&s",
+    rating: 4.2,
+    inStock: true,
   },
-  {
-    id: 3,
-    title: "Seasonal Picks",
-    icon: "🌟",
-    color: "#F59E0B",
-    onPress: () => router.push("/(customer)/category/seasonal"),
-  },
+  
   {
     id: 4,
-    title: "All Products",
-    icon: "🛒",
-    color: "#8B5CF6",
-    onPress: () => router.push("/(customer)/category/all"),
+    name: "Fresh Carrots",
+    price: 45,
+    unit: "per kg",
+    image: "https://images.unsplash.com/photo-1445282768818-728615cc910a?w=200&h=200&fit=crop",
+    rating: 4.3,
+    inStock: true,
+  },
+  {
+    id: 5,
+    name: "Green Spinach",
+    price: 25,
+    unit: "per kg",
+    image: "https://upload.wikimedia.org/wikipedia/commons/a/af/Green_Magic_Vegetables_Spinach_%2841648196070%29.jpg",
+    rating: 4.6,
+    inStock: true,
+  },
+  {
+    id: 6,
+    name: "Fresh Potatoes",
+    price: 30,
+    unit: "per kg",
+    image: "https://images.unsplash.com/photo-1518977676601-b53f82aba655?w=200&h=200&fit=crop",
+    rating: 4.4,
+    inStock: true,
   },
 ]
 
-export default function HomeScreen() {
-  const [searchQuery, setSearchQuery] = useState("")
-  const [products, setProducts] = useState<Product[]>([])
-  const [refreshing, setRefreshing] = useState(false)
-  const [loading, setLoading] = useState(true)
-  const [showMenu, setShowMenu] = useState(false)
-  const [showLocationPicker, setShowLocationPicker] = useState(false)
+export default function CustomerHome() {
   const [currentPromoIndex, setCurrentPromoIndex] = useState(0)
-  const [userLocation, setUserLocation] = useState<LocationDetails | null>(null)
-  const { addItem } = useCart()
-  const { user, logout } = useAuth()
-  const promoScrollRef = useRef<FlatList>(null)
-  const autoSlideInterval = useRef<ReturnType<typeof setInterval> | null>(null)
+  const promoRef = useRef<FlatList>(null)
 
-  useEffect(() => {
-    loadProducts()
-    const subscription = subscribeToProducts((updatedProducts) => {
-      setProducts(updatedProducts)
-    })
-    return () => subscription.unsubscribe()
-  }, [])
+  const renderPromoItem = ({ item, index }: { item: any; index: number }) => (
+    <View style={styles.promoSlide}>
+      <Image source={item.image} style={styles.promoImage} />
+    </View>
+  )
 
-  // Auto-slide promo cards
-  useEffect(() => {
-    const startAutoSlide = () => {
-      autoSlideInterval.current = setInterval(() => {
-        setCurrentPromoIndex((prevIndex) => {
-          const nextIndex = (prevIndex + 1) % PROMO_CARDS.length;
-          promoScrollRef.current?.scrollToIndex({
-            index: nextIndex,
-            animated: true,
-          });
-          return nextIndex;
-        });
-      }, 400000); // 4 seconds
-    };
-
-    startAutoSlide();
-
-    return () => {
-      if (autoSlideInterval.current) {
-        clearInterval(autoSlideInterval.current);
-      }
-    };
-  }, []);
-  const loadProducts = async () => {
-    try {
-      const data = await getProducts()
-      setProducts(data.filter((p) => p.stock > 0))
-    } catch (error) {
-      console.error("Failed to load products:", error)
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const onRefresh = async () => {
-    setRefreshing(true)
-    await loadProducts()
-    setRefreshing(false)
-  }
-
-  const handleAddToCart = (product: Product) => {
-    addItem({
-      id: product.id,
-      name: product.name,
-      price: product.price,
-      unit: "kg",
-      image: product.image_url,
-    })
-  }
-
-  const handleSearch = () => {
-    if (searchQuery.trim()) {
-      router.push(`/(customer)/search?q=${encodeURIComponent(searchQuery)}`)
-    }
-  }
-
-  const handleLogout = async () => {
-    await logout()
-    router.replace("/(auth)/welcome")
-  }
-
-  const handleLocationSelect = (location: LocationDetails) => {
-    setUserLocation(location)
-  }
-
-  const handlePromoCardPress = (card: any) => {
-    if (card.onPress) {
-      card.onPress()
-    }
-  }
-
-  const onPromoScrollEnd = (event: any) => {
-    const contentOffset = event.nativeEvent.contentOffset.x
-    const index = Math.round(contentOffset / CARD_WIDTH)
-    setCurrentPromoIndex(index)
-  }
-
-  const menuItems = [
-    {
-      icon: <MapPin size={20} color="#64748B" />,
-      title: "Change Location",
-      onPress: () => setShowLocationPicker(true),
-    },
-    {
-      icon: <TrendingUp size={20} color="#64748B" />,
-      title: "All Mandi Rates",
-      onPress: () => router.push("/(customer)/mandi-rates"),
-    },
-    { icon: <User size={20} color="#64748B" />, title: "Profile", onPress: () => router.push("/(customer)/profile") },
-    {
-      icon: <Clock size={20} color="#64748B" />,
-      title: "Order History",
-      onPress: () => router.push("/(customer)/order-history"),
-    },
-    {
-      icon: <Search size={20} color="#64748B" />,
-      title: "View All Products",
-      onPress: () => router.push("/(customer)/category/all"),
-    },
-    { icon: <Phone size={20} color="#64748B" />, title: "Contact", onPress: () => {} },
-    { icon: <HelpCircle size={20} color="#64748B" />, title: "FAQ", onPress: () => {} },
-    { icon: <Mail size={20} color="#64748B" />, title: "About", onPress: () => {} },
-    { icon: <LogOut size={20} color="#EF4444" />, title: "Logout", onPress: handleLogout, textColor: "#EF4444" },
-  ]
-
-  const renderPromoCard = ({ item }: { item: any }) => (
+  const renderCategoryItem = ({ item }: { item: any }) => (
     <TouchableOpacity
-      style={[styles.promoCard, { backgroundColor: item.color }]}
-      onPress={() => handlePromoCardPress(item)}
+      style={styles.categoryCard}
+      onPress={() => router.push(`/(customer)/category/${item.slug}`)}
       activeOpacity={0.8}
     >
-      <View style={styles.promoCardContent}>
-        <Text style={styles.promoIcon}>{item.icon}</Text>
-        <View style={styles.promoTextContainer}>
-          <Text style={styles.promoTitle}>{item.title}</Text>
-          <Text style={styles.promoSubtitle}>{item.subtitle}</Text>
-        </View>
+      <View style={styles.categoryIcon}>
+        <Text style={styles.categoryEmoji}>{item.icon}</Text>
       </View>
+      <Text style={styles.categoryName}>{item.name}</Text>
+     
     </TouchableOpacity>
   )
 
-  const renderQuickAction = (action: any) => (
+  const renderProductItem = ({ item }: { item: any }) => (
     <TouchableOpacity
-      key={action.id}
-      style={[styles.quickActionCard, { borderColor: action.color }]}
-      onPress={action.onPress}
-      activeOpacity={0.7}
+      style={styles.productCard}
+      onPress={() => router.push("/(customer)/category/vegetables")}
+      activeOpacity={0.8}
     >
-      <Text style={styles.quickActionIcon}>{action.icon}</Text>
-      <Text style={styles.quickActionTitle}>{action.title}</Text>
+      <View style={styles.productImageContainer}>
+        <Image source={{ uri: item.image }} style={styles.productImage} />
+        {!item.inStock && (
+          <View style={styles.outOfStockOverlay}>
+            <Text style={styles.outOfStockText}>Out of Stock</Text>
+          </View>
+        )}
+      </View>
+      <View style={styles.productInfo}>
+        <Text style={styles.productName}>{item.name}</Text>
+        <View style={styles.productRating}>
+          <Ionicons name="star" size={12} color="#FFD700" />
+          <Text style={styles.ratingText}>{item.rating}</Text>
+        </View>
+        <View style={styles.productPricing}>
+          <Text style={styles.productPrice}>₹{item.price}</Text>
+          <Text style={styles.productUnit}>{item.unit}</Text>
+        </View>
+        <TouchableOpacity
+          style={[styles.addToCartBtn, !item.inStock && styles.disabledBtn]}
+          disabled={!item.inStock}
+          activeOpacity={0.8}
+        >
+          <Ionicons name="add" size={16} color="white" />
+          <Text style={styles.addToCartText}>Add</Text>
+        </TouchableOpacity>
+      </View>
     </TouchableOpacity>
   )
 
-  const renderProductGrid = (productList: Product[], title: string, viewAllRoute: string) => {
-    const rows = []
-    for (let i = 0; i < productList.length; i += 2) {
-      const rowProducts = productList.slice(i, i + 2)
-      rows.push(
-        <View key={i} style={styles.productRow}>
-          {rowProducts.map((product) => (
-            <View key={product.id} style={styles.productCard}>
-              <Image
-                source={{
-                  uri: product.image_url || `/placeholder.svg?height=100&width=100&text=${product.name}`,
-                }}
-                style={styles.productImage}
-              />
-              <View style={styles.productInfo}>
-                <Text style={styles.productName} numberOfLines={2}>
-                  {product.name}
-                </Text>
-                <Text style={styles.productPrice}>₹{product.price}/kg</Text>
-                <Text style={styles.mandiPrice}>Mandi: ₹{Math.round(product.price * 0.8)}/kg</Text>
-                <TouchableOpacity style={styles.addButton} onPress={() => handleAddToCart(product)}>
-                  <Text style={styles.addButtonText}>Add to Cart</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-          ))}
-          {/* Fill empty space if odd number of products */}
-          {rowProducts.length === 1 && <View style={styles.emptyCard} />}
-        </View>,
-      )
-    }
-
-    return (
-      <View style={styles.productsSection}>
-        <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>{title}</Text>
-          <TouchableOpacity onPress={() => router.push(viewAllRoute)}>
-            <Text style={styles.viewAllText}>View All</Text>
-          </TouchableOpacity>
-        </View>
-        {rows}
-      </View>
-    )
+  const onPromoScroll = (event: any) => {
+    const slideSize = event.nativeEvent.layoutMeasurement.width
+    const index = event.nativeEvent.contentOffset.x / slideSize
+    const roundIndex = Math.round(index)
+    setCurrentPromoIndex(roundIndex)
   }
 
   return (
     <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <TouchableOpacity style={styles.menuButton} onPress={() => setShowMenu(true)}>
-          <Menu size={24} stroke="#22C55E" strokeWidth={2} />
-        </TouchableOpacity>
-        <View style={styles.searchContainer}>
-          <Search size={18} stroke="#94A3B8" strokeWidth={2} />
-          <TextInput
-            style={styles.searchInput}
-            placeholder="Search vegetables, fruits..."
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-            onSubmitEditing={handleSearch}
-            placeholderTextColor="#94A3B8"
-          />
-        </View>
-        <TouchableOpacity style={styles.profileButton} onPress={() => router.push("/(customer)/profile")}>
-          <User size={20} stroke="#22C55E" strokeWidth={2} />
-        </TouchableOpacity>
-      </View>
-
-      {/* Location Bar */}
-      <TouchableOpacity style={styles.locationBar} onPress={() => setShowLocationPicker(true)}>
-        <MapPin size={16} color="#22C55E" />
-        <Text style={styles.locationText}>
-          {userLocation
-            ? `${userLocation.city}, ${userLocation.state}`
-            : `${user?.city || "Amritsar"}, ${user?.state || "Punjab"}`}
-        </Text>
-        <Text style={styles.changeLocationText}>Change</Text>
-      </TouchableOpacity>
-
-      <ScrollView
-        style={styles.content}
-        showsVerticalScrollIndicator={false}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
-      >
-        <View style={styles.welcomeSection}>
-          <Text style={styles.appName}>MandiKharidari</Text>
-          <Text style={styles.tagline}>Fresh • Fast • Fair Prices</Text>
-          <View style={styles.statsContainer}>
-            <View style={styles.statItem}>
-              <Star size={16} color="#F59E0B" />
-              <Text style={styles.statText}>4.8 Rating</Text>
-            </View>
-            <View style={styles.statItem}>
-              <Truck size={16} color="#22C55E" />
-              <Text style={styles.statText}>30min Delivery</Text>
-            </View>
+      <ScrollView showsVerticalScrollIndicator={false}>
+        {/* Header */}
+        <View style={styles.header}>
+          <HamburgerMenu currentScreen="/(customer)" />
+          <View style={styles.headerContent}>
+            <Text style={styles.greeting}>Mandi Kharidari</Text>
+            <Text style={styles.subtitle}>Fresh vegetables at your doorstep</Text>
           </View>
+          <TouchableOpacity
+            style={styles.profileBtn}
+            onPress={() => router.push("/(customer)/profile")}
+            activeOpacity={0.8}
+          >
+            <Ionicons name="person-circle-outline" size={32} color="#2E7D32" />
+          </TouchableOpacity>
         </View>
 
-        {/* Auto-sliding Promo Cards with proper snapping */}
+        {/* Search Bar */}
+        <TouchableOpacity
+          style={styles.searchBar}
+          onPress={() => router.push("/(customer)/search")}
+          activeOpacity={0.8}
+        >
+          <Ionicons name="search" size={20} color="#666" />
+          <Text style={styles.searchPlaceholder}>Search for vegetables, fruits...</Text>
+        </TouchableOpacity>
+
+        {/* Promo Carousel */}
         <View style={styles.promoSection}>
           <FlatList
-            ref={promoScrollRef}
-            data={PROMO_CARDS}
-            renderItem={renderPromoCard}
+            ref={promoRef}
+            data={promoImages}
+            renderItem={renderPromoItem}
             keyExtractor={(item) => item.id.toString()}
             horizontal
             pagingEnabled
             showsHorizontalScrollIndicator={false}
-            snapToInterval={CARD_WIDTH}
-            snapToAlignment="start"
-            decelerationRate="fast"
-            onMomentumScrollEnd={onPromoScrollEnd}
-            getItemLayout={(data, index) => ({
-              length: CARD_WIDTH,
-              offset: CARD_WIDTH * index,
-              index,
-            })}
+            onScroll={onPromoScroll}
+            scrollEventThrottle={16}
           />
           <View style={styles.promoIndicators}>
-            {PROMO_CARDS.map((_, index) => (
-              <View
-                key={index}
-                style={[
-                  styles.promoIndicator,
-                  { backgroundColor: index === currentPromoIndex ? "#22C55E" : "#E2E8F0" },
-                ]}
-              />
+            {promoImages.map((_, index) => (
+              <View key={index} style={[styles.indicator, index === currentPromoIndex && styles.activeIndicator]} />
             ))}
           </View>
         </View>
 
         {/* Quick Actions */}
-        <View style={styles.quickActionsSection}>
-          <Text style={styles.sectionTitle}>Quick Actions</Text>
-          <View style={styles.quickActionsGrid}>{QUICK_ACTIONS.map(renderQuickAction)}</View>
+        <View style={styles.quickActions}>
+          <TouchableOpacity
+            style={styles.actionBtn}
+            onPress={() => router.push("/(customer)/mandi-rates")}
+            activeOpacity={0.8}
+          >
+            <Ionicons name="trending-up" size={24} color="#2E7D32" />
+            <Text style={styles.actionText}>Mandi Rates</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.actionBtn}
+            onPress={() => router.push("/(customer)/order-history")}
+            activeOpacity={0.8}
+          >
+            <Ionicons name="time" size={24} color="#2E7D32" />
+            <Text style={styles.actionText}>Orders</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.actionBtn}
+            onPress={() => router.push("/(customer)/feedback")}
+            activeOpacity={0.8}
+          >
+            <Ionicons name="chatbubble-ellipses" size={24} color="#2E7D32" />
+            <Text style={styles.actionText}>Feedback</Text>
+          </TouchableOpacity>
         </View>
 
-        {/* Product Grids - 2 columns */}
-        {renderProductGrid(
-          products.filter((p) => p.type === "vegetable").slice(0, 6),
-          "Fresh Vegetables",
-          "/(customer)/category/vegetables",
-        )}
-
-        {renderProductGrid(
-          products.filter((p) => p.type === "fruit").slice(0, 6),
-          "Fresh Fruits",
-          "/(customer)/category/fruits",
-        )}
-
-        {/* Bottom Spacing for Tab Bar */}
-        <View style={styles.bottomSpacing} />
-      </ScrollView>
-
-      {/* Hamburger Menu Modal */}
-      <Modal visible={showMenu} animationType="slide" transparent>
-        <View style={styles.menuOverlay}>
-          <View style={styles.menuContent}>
-            <View style={styles.menuHeader}>
-              <View style={styles.userInfo}>
-                <View style={styles.userAvatar}>
-                  <User size={24} color="#22C55E" />
-                </View>
-                <View>
-                  <Text style={styles.userName}>{user?.name || "User"}</Text>
-                  <Text style={styles.userLocation}>
-                    {userLocation
-                      ? `${userLocation.city}, ${userLocation.state}`
-                      : `${user?.city || "Amritsar"}, ${user?.state || "Punjab"}`}
-                  </Text>
-                </View>
-              </View>
-              <TouchableOpacity onPress={() => setShowMenu(false)}>
-                <X size={24} color="#64748B" />
-              </TouchableOpacity>
-            </View>
-            <ScrollView style={styles.menuItems}>
-              {menuItems.map((item, index) => (
-                <TouchableOpacity
-                  key={index}
-                  style={styles.menuItem}
-                  onPress={() => {
-                    setShowMenu(false)
-                    item.onPress()
-                  }}
-                >
-                  {item.icon}
-                  <Text style={[styles.menuItemText, { color: item.textColor || "#1E293B" }]}>{item.title}</Text>
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
-            <View style={styles.menuFooter}>
-              <Text style={styles.versionText}>Version 1.0.0</Text>
-            </View>
+        {/* Categories */}
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Shop by Category</Text>
           </View>
+          <FlatList
+            data={categories}
+            renderItem={renderCategoryItem}
+            keyExtractor={(item) => item.id.toString()}
+            numColumns={2}
+            scrollEnabled={false}
+            columnWrapperStyle={styles.categoryRow}
+          />
         </View>
-      </Modal>
 
-      {/* Location Picker */}
-      <LocationPicker
-        visible={showLocationPicker}
-        onClose={() => setShowLocationPicker(false)}
-        onLocationSelect={handleLocationSelect}
-        initialLocation={userLocation?.coordinates}
-      />
+        {/* Featured Products */}
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Featured Products</Text>
+            <TouchableOpacity onPress={() => router.push("/(customer)/category/vegetables")} activeOpacity={0.8}>
+              <Text style={styles.seeAll}>See All</Text>
+            </TouchableOpacity>
+          </View>
+
+          <FlatList
+            data={featuredProducts}
+            renderItem={renderProductItem}
+            keyExtractor={(item) => item.id.toString()}
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.productsContainer}
+          />
+        </View>
+      </ScrollView>
     </SafeAreaView>
   )
 }
@@ -471,340 +275,257 @@ export default function HomeScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#F8FAFC",
-    paddingTop: 10,
+    backgroundColor: "#FAFAFA",
   },
   header: {
     flexDirection: "row",
+    justifyContent: "space-between",
     alignItems: "center",
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    backgroundColor: "#FFFFFF",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  menuButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: "#F0FDF4",
-    justifyContent: "center",
-    alignItems: "center",
-    marginRight: 12,
-  },
-  searchContainer: {
-    flex: 1,
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#F1F5F9",
-    borderRadius: 20,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    marginRight: 12,
-  },
-  searchInput: {
-    flex: 1,
-    marginLeft: 8,
-    fontSize: 14,
-    color: "#1E293B",
-  },
-  profileButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: "#F0FDF4",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  locationBar: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#FFFFFF",
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: "#F1F5F9",
-  },
-  locationText: {
-    flex: 1,
-    fontSize: 14,
-    color: "#1E293B",
-    fontWeight: "500",
-    marginLeft: 8,
-  },
-  changeLocationText: {
-    fontSize: 12,
-    color: "#22C55E",
-    fontWeight: "600",
-  },
-  content: {
-    flex: 1,
-  },
-  welcomeSection: {
     paddingHorizontal: 20,
-    paddingVertical: 20,
+    paddingVertical: 12, // Reduced from 15
+    backgroundColor: "#22C55E", // Consistent green
   },
-  appName: {
-    fontSize: 28,
-    fontWeight: "700",
-    color: "#22C55E",
-    marginBottom: 4,
+  headerContent: {
+    flex: 1,
+    alignItems: "center",
   },
-  tagline: {
-    fontSize: 16,
-    color: "#64748B",
-    fontStyle: "italic",
-    marginBottom: 12,
+  greeting: {
+    fontSize: 20, // Reduced from 24
+    fontWeight: "bold",
+    color: "#FFFFFF", // Changed to white
   },
-  statsContainer: {
-    flexDirection: "row",
-    gap: 16,
+  subtitle: {
+    fontSize: 12, // Reduced from 14
+    color: "rgba(255,255,255,0.8)", // Changed to white with opacity
+    marginTop: 2,
   },
-  statItem: {
+  profileBtn: {
+    padding: 5,
+  },
+  searchBar: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 4,
+    backgroundColor: "white",
+    marginHorizontal: 20,
+    marginVertical: 12, // Reduced from 15
+    paddingHorizontal: 15,
+    paddingVertical: 10, // Reduced from 12
+    borderRadius: 20, // Reduced from 25
+    elevation: 2,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
   },
-  statText: {
-    fontSize: 12,
-    color: "#64748B",
-    fontWeight: "500",
+  searchPlaceholder: {
+    marginLeft: 10,
+    color: "#666",
+    fontSize: 16,
   },
   promoSection: {
     marginVertical: 10,
   },
-  promoList: {
-    alignItems: "center",
-    justifyContent: "center",
-    paddingHorizontal: 10,
+  promoSlide: {
+    width: width - 40,
+    height: 180,
+    marginHorizontal: 20,
+    borderRadius: 15,
+    overflow: "hidden",
+    position: "relative",
   },
-  promoCard: {
-    width: CARD_WIDTH,
-    marginHorizontal: 5,
-    borderRadius: 12,
-    padding: 18,
-    elevation: 5,
-    shadowColor: "#000",
-    shadowOffset: { width: 1, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 8,
-    gap: 15,
-    alignSelf: "flex-start", // ✅ ensures center alignment
+  promoImage: {
+    width: "100%",
+    height: "100%",
+    resizeMode: "cover",
   },
-  promoCardContent: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-  },
-  promoIcon: {
-    fontSize: 30,
-    marginRight: 16,
-  },
-  promoTextContainer: {
-    flex: 1,
-  },
-  promoTitle: {
-    color: "#fff",
-    fontSize: 18,
-    fontWeight: "bold",
-    marginBottom: 4,
-  },
-  promoSubtitle: {
-    color: "#fff",
-    fontSize: 14,
-  },
-
   promoIndicators: {
     flexDirection: "row",
     justifyContent: "center",
-    gap: 8,
-    marginTop: 16,
+    marginTop: 15,
   },
-  promoIndicator: {
+  indicator: {
     width: 8,
     height: 8,
     borderRadius: 4,
+    backgroundColor: "#E0E0E0",
+    marginHorizontal: 4,
   },
-  quickActionsSection: {
-    paddingHorizontal: 20,
-    marginBottom: 24,
+  activeIndicator: {
+    backgroundColor: "#2E7D32",
   },
-  quickActionsGrid: {
+  quickActions: {
     flexDirection: "row",
-    flexWrap: "wrap",
-    justifyContent: "space-between",
-    gap: 12,
-  },
-  quickActionCard: {
-    width: (width - 64) / 2,
-    backgroundColor: "#FFFFFF",
-    borderRadius: 12,
-    padding: 16,
-    alignItems: "center",
-    borderWidth: 2,
+    justifyContent: "space-around",
+    paddingHorizontal: 20,
+    paddingVertical: 16, // Reduced from 20
+    backgroundColor: "white",
+    marginHorizontal: 20,
+    marginVertical: 8, // Reduced from 10
+    borderRadius: 12, // Reduced from 15
+    elevation: 2,
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
+    shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    shadowRadius: 2,
   },
-  quickActionIcon: {
-    fontSize: 24,
-    marginBottom: 8,
+  actionBtn: {
+    alignItems: "center",
+    flex: 1,
   },
-  quickActionTitle: {
+  actionText: {
+    marginTop: 8,
     fontSize: 12,
-    fontWeight: "600",
-    color: "#1E293B",
-    textAlign: "center",
+    color: "#2E7D32",
+    fontWeight: "500",
   },
-  productsSection: {
-    marginBottom: 24,
+  section: {
+    paddingHorizontal: 20,
+    marginVertical: 10,
   },
   sectionHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    paddingHorizontal: 20,
-    marginBottom: 16,
+    marginBottom: 15,
   },
   sectionTitle: {
-    fontSize: 20,
-    fontWeight: "600",
-    color: "#1E293B",
+    fontSize: 18,
+    fontWeight: "bold",
+    color: "#333",
   },
-  viewAllText: {
+  seeAll: {
+    color: "#2E7D32",
     fontSize: 14,
-    color: "#22C55E",
-    fontWeight: "600",
+    fontWeight: "500",
   },
-  productRow: {
-    flexDirection: "row",
+  categoryRow: {
     justifyContent: "space-between",
-    paddingHorizontal: 20,
-    marginBottom: 12,
+    marginBottom: 15,
+  },
+  categoryCard: {
+    backgroundColor: "white",
+    borderRadius: 12, // Reduced from 15
+    padding: 16, // Reduced from 20
+    alignItems: "center",
+    width: (width - 60) / 2,
+    elevation: 2,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+  },
+  categoryIcon: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: "#E8F5E8",
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: 10,
+  },
+  categoryEmoji: {
+    fontSize: 24,
+  },
+  categoryName: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#333",
+    marginBottom: 5,
+  },
+  categoryCount: {
+    fontSize: 12,
+    color: "#666",
+  },
+  productsContainer: {
+    paddingRight: 20,
   },
   productCard: {
-    flex: 1,
-    backgroundColor: "#FFFFFF",
-    borderRadius: 12,
-    padding: 12,
-    marginHorizontal: 6,
+    backgroundColor: "white",
+    borderRadius: 12, // Reduced from 15
+    marginRight: 12, // Reduced from 15
+    width: 140, // Reduced from 160
+    elevation: 2,
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
+    shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    shadowRadius: 2,
   },
-  emptyCard: {
-    flex: 1,
-    marginHorizontal: 6,
+  productImageContainer: {
+    position: "relative",
   },
   productImage: {
     width: "100%",
-    height: 100,
-    borderRadius: 8,
+    height: 100, // Reduced from 120
+    borderTopLeftRadius: 12,
+    borderTopRightRadius: 12,
     resizeMode: "cover",
-    marginBottom: 8,
+  },
+  outOfStockOverlay: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: "rgba(0,0,0,0.6)",
+    justifyContent: "center",
+    alignItems: "center",
+    borderTopLeftRadius: 15,
+    borderTopRightRadius: 15,
+  },
+  outOfStockText: {
+    color: "white",
+    fontWeight: "bold",
+    fontSize: 12,
   },
   productInfo: {
-    flex: 1,
+    padding: 10, // Reduced from 12
   },
   productName: {
     fontSize: 14,
     fontWeight: "600",
-    color: "#1E293B",
-    marginBottom: 6,
-    minHeight: 36,
+    color: "#333",
+    marginBottom: 5,
+  },
+  productRating: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 8,
+  },
+  ratingText: {
+    marginLeft: 4,
+    fontSize: 12,
+    color: "#666",
+  },
+  productPricing: {
+    flexDirection: "row",
+    alignItems: "baseline",
+    marginBottom: 10,
   },
   productPrice: {
     fontSize: 16,
-    fontWeight: "700",
-    color: "#22C55E",
-    marginBottom: 2,
+    fontWeight: "bold",
+    color: "#2E7D32",
   },
-  mandiPrice: {
+  productUnit: {
     fontSize: 12,
-    color: "#64748B",
-    marginBottom: 10,
+    color: "#666",
+    marginLeft: 4,
   },
-  addButton: {
-    backgroundColor: "#22C55E",
-    borderRadius: 8,
-    paddingVertical: 8,
-    alignItems: "center",
-  },
-  addButtonText: {
-    fontSize: 12,
-    fontWeight: "600",
-    color: "#FFFFFF",
-  },
-  bottomSpacing: {
-    height: 100,
-  },
-  menuOverlay: {
-    flex: 1,
-    backgroundColor: "rgba(0,0,0,0.5)",
-  },
-  menuContent: {
-    flex: 1,
-    backgroundColor: "#FFFFFF",
-    width: "80%",
-  },
-  menuHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    padding: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: "#E2E8F0",
-  },
-  userInfo: {
+  addToCartBtn: {
+    backgroundColor: "#2E7D32",
     flexDirection: "row",
     alignItems: "center",
-  },
-  userAvatar: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: "#F0FDF4",
     justifyContent: "center",
-    alignItems: "center",
-    marginRight: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
   },
-  userName: {
-    fontSize: 16,
+  disabledBtn: {
+    backgroundColor: "#CCCCCC",
+  },
+  addToCartText: {
+    color: "white",
+    fontSize: 12,
     fontWeight: "600",
-    color: "#1E293B",
-  },
-  userLocation: {
-    fontSize: 12,
-    color: "#64748B",
-  },
-  menuItems: {
-    flex: 1,
-    paddingTop: 20,
-  },
-  menuItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-  },
-  menuItemText: {
-    fontSize: 16,
-    marginLeft: 16,
-  },
-  menuFooter: {
-    padding: 20,
-    borderTopWidth: 1,
-    borderTopColor: "#E2E8F0",
-    alignItems: "center",
-  },
-  versionText: {
-    fontSize: 12,
-    color: "#94A3B8",
+    marginLeft: 4,
   },
 })

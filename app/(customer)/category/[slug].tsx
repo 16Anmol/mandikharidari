@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import {
   View,
   Text,
@@ -17,6 +17,7 @@ import { ArrowLeft, Plus, Minus, Search } from "lucide-react-native"
 import { getProducts, subscribeToProducts } from "@/services/supabase"
 import type { Product } from "@/services/supabase"
 import { useCart } from "@/contexts/CartContext"
+import HamburgerMenu from "@/components/HamburgerMenu"
 
 const categoryTitles: Record<string, string> = {
   seasonal: "Seasonal Picks",
@@ -39,6 +40,8 @@ export default function CategoryScreen() {
   const [searchQuery, setSearchQuery] = useState("")
   const [refreshing, setRefreshing] = useState(false)
   const [quantities, setQuantities] = useState<Record<string, number>>({})
+  const [headerVisible, setHeaderVisible] = useState(true)
+  const scrollY = useRef(0)
   const { addItem } = useCart()
 
   useEffect(() => {
@@ -88,6 +91,19 @@ export default function CategoryScreen() {
     setRefreshing(false)
   }
 
+  const handleScroll = (event: any) => {
+    const currentScrollY = event.nativeEvent.contentOffset.y
+    const scrollDirection = currentScrollY > scrollY.current ? "down" : "up"
+
+    if (scrollDirection === "down" && currentScrollY > 100) {
+      setHeaderVisible(false)
+    } else if (scrollDirection === "up" || currentScrollY < 50) {
+      setHeaderVisible(true)
+    }
+
+    scrollY.current = currentScrollY
+  }
+
   const updateQuantity = (productId: string, change: number) => {
     setQuantities((prev) => ({
       ...prev,
@@ -98,127 +114,140 @@ export default function CategoryScreen() {
   const handleAddToCart = (product: Product) => {
     const quantity = quantities[product.id] || 0.5
     if (quantity > 0) {
+      // Add the item without quantity first, then update quantity
       addItem({
         id: product.id,
         name: product.name,
         price: product.price,
-        quantity: quantity,
         unit: "kg",
-        image: product.image_url,
+        image_url: product.image_url,
+        image: ""
       })
+      // Update quantity if different from 1
+      if (quantity !== 1) {
+        updateQuantity(product.id, quantity)
+      }
       setQuantities((prev) => ({ ...prev, [product.id]: 0 }))
     }
   }
 
   const renderProductGrid = () => {
-    const rows = []
-    for (let i = 0; i < filteredProducts.length; i += 2) {
-      const rowProducts = filteredProducts.slice(i, i + 2)
-      rows.push(
-        <View key={i} style={styles.productRow}>
-          {rowProducts.map((product) => (
-            <View key={product.id} style={styles.productCard}>
-              <Image
-                source={{
-                  uri: product.image_url || `/placeholder.svg?height=120&width=120&text=${product.name}`,
+    return filteredProducts.map((product) => (
+      <View key={product.id} style={styles.productCard}>
+        <Image
+          source={{
+            uri: product.image_url || `/placeholder.svg?height=120&width=120&text=${product.name}`,
+          }}
+          style={styles.productImage}
+        />
+        <View style={styles.productInfo}>
+          <View style={styles.nameAndPriceRow}>
+            <Text style={styles.productName} numberOfLines={1}>
+              {product.name}
+            </Text>
+          </View>
+          <Text style={styles.productPrice}>₹{product.price}/kg</Text>
+          <Text style={styles.mandiPrice}>Mandi: ₹{Math.round(product.price * 0.8)}/kg</Text>
+
+          <View style={styles.rowActions}>
+            <View style={styles.quantitySelector}>
+              <TouchableOpacity
+                style={styles.quantityButton}
+                onPress={() => updateQuantity(product.id, -0.5)}
+                activeOpacity={0.7}
+              >
+                <Minus size={16} stroke="#22C55E" strokeWidth={2} />
+              </TouchableOpacity>
+              <TextInput
+                style={styles.quantityInput}
+                value={quantities[product.id] ? quantities[product.id].toString() : ""}
+                onChangeText={(text) => {
+                  const value = Number.parseFloat(text) || 0
+                  setQuantities((prev) => ({ ...prev, [product.id]: value }))
                 }}
-                style={styles.productImage}
+                keyboardType="numeric"
+                placeholder="0"
               />
-              <View style={styles.productInfo}>
-                <Text style={styles.productName} numberOfLines={2}>
-                  {product.name}
-                </Text>
-                <Text style={styles.productPrice}>₹{product.price}/kg</Text>
-                <Text style={styles.stockText}>Stock: {product.stock}kg</Text>
-
-                <View style={styles.quantityContainer}>
-                  <Text style={styles.quantityLabel}>Quantity (kg):</Text>
-                  <View style={styles.quantitySelector}>
-                    <TouchableOpacity style={styles.quantityButton} onPress={() => updateQuantity(product.id, -0.5)}>
-                      <Minus size={16} stroke="#22C55E" strokeWidth={2} />
-                    </TouchableOpacity>
-                    <TextInput
-                      style={styles.quantityInput}
-                      value={quantities[product.id] ? quantities[product.id].toString() : ""}
-                      onChangeText={(text) => {
-                        const value = Number.parseFloat(text) || 0
-                        setQuantities((prev) => ({ ...prev, [product.id]: value }))
-                      }}
-                      keyboardType="numeric"
-                    />
-                    <TouchableOpacity style={styles.quantityButton} onPress={() => updateQuantity(product.id, 0.5)}>
-                      <Plus size={16} stroke="#22C55E" strokeWidth={2} />
-                    </TouchableOpacity>
-                  </View>
-                </View>
-
-                <TouchableOpacity
-                  style={[styles.addButton, { backgroundColor: categoryColors[slug || "all"] }]}
-                  onPress={() => handleAddToCart(product)}
-                  disabled={!quantities[product.id] || quantities[product.id] <= 0}
-                >
-                  <Text style={styles.addButtonText}>Add to Cart</Text>
-                </TouchableOpacity>
-              </View>
+              <TouchableOpacity
+                style={styles.quantityButton}
+                onPress={() => updateQuantity(product.id, 0.5)}
+                activeOpacity={0.7}
+              >
+                <Plus size={16} stroke="#22C55E" strokeWidth={2} />
+              </TouchableOpacity>
             </View>
-          ))}
-          {/* Fill empty spaces in the row */}
-          {rowProducts.length < 2 &&
-            Array.from({ length: 2 - rowProducts.length }).map((_, index) => (
-              <View key={`empty-${index}`} style={styles.emptyCard} />
-            ))}
-        </View>,
-      )
-    }
-    return rows
+
+            <TouchableOpacity
+              style={[
+                styles.addButton,
+                {
+                  backgroundColor: categoryColors[slug || "all"],
+                  opacity: !quantities[product.id] || quantities[product.id] <= 0 ? 0.5 : 1,
+                },
+              ]}
+              onPress={() => handleAddToCart(product)}
+              disabled={!quantities[product.id] || quantities[product.id] <= 0}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.addButtonText}>Add to Cart</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </View>
+    ))
   }
 
   return (
     <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
-          <ArrowLeft size={24} stroke="#FFFFFF" strokeWidth={2} />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>{categoryTitles[slug || "all"] || "Products"}</Text>
-        <View style={styles.headerSpacer} />
-      </View>
+      {headerVisible && (
+        <>
+          <View style={styles.header}>
+            <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
+              <ArrowLeft size={24} stroke="#FFFFFF" strokeWidth={2} />
+            </TouchableOpacity>
+            <Text style={styles.headerTitle}>{categoryTitles[slug || "all"] || "Products"}</Text>
+            <HamburgerMenu currentScreen={`/(customer)/category/${slug}`} />
+          </View>
 
-      <View style={styles.searchContainer}>
-       
+          <View style={styles.searchContainer}>
+            <Search size={20} stroke="#94A3B8" strokeWidth={2} />
+            <TextInput
+              style={styles.searchInput}
+              placeholder="Search products..."
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              placeholderTextColor="#94A3B8"
+            />
+          </View>
 
-        <Search size={20} stroke="#94A3B8" strokeWidth={2} />
-        <TextInput
-          style={styles.searchInput}
-          placeholder="Search products..."
-          value={searchQuery}
-          onChangeText={setSearchQuery}
-          placeholderTextColor="#94A3B8"
-        />
-      </View>
-       <View style={styles.categoryButtonsContainer}>
-  <TouchableOpacity
-    style={[styles.categoryButton, slug === "fruits" && styles.activeCategory]}
-    onPress={() => router.push("/category/fruits")}
-  >
-    <Text style={[styles.categoryButtonText, slug === "fruits" && styles.activeCategoryText]}>
-      Fruits
-    </Text>
-  </TouchableOpacity>
+          <View style={styles.categoryButtonsContainer}>
+            <TouchableOpacity
+              style={[styles.categoryButton, slug === "fruits" && styles.activeCategory]}
+              onPress={() => router.push("/category/fruits")}
+              activeOpacity={0.8}
+            >
+              <Text style={[styles.categoryButtonText, slug === "fruits" && styles.activeCategoryText]}>Fruits</Text>
+            </TouchableOpacity>
 
-  <TouchableOpacity
-    style={[styles.categoryButton, slug === "vegetables" && styles.activeCategory]}
-    onPress={() => router.push("/category/vegetables")}
-  >
-    <Text style={[styles.categoryButtonText, slug === "vegetables" && styles.activeCategoryText]}>
-      Vegetables
-    </Text>
-  </TouchableOpacity>
-</View>
+            <TouchableOpacity
+              style={[styles.categoryButton, slug === "vegetables" && styles.activeCategory]}
+              onPress={() => router.push("/category/vegetables")}
+              activeOpacity={0.8}
+            >
+              <Text style={[styles.categoryButtonText, slug === "vegetables" && styles.activeCategoryText]}>
+                Vegetables
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </>
+      )}
 
       <ScrollView
         style={styles.content}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
         showsVerticalScrollIndicator={false}
+        onScroll={handleScroll}
+        scrollEventThrottle={16}
       >
         {filteredProducts.length === 0 ? (
           <View style={styles.emptyState}>
@@ -240,34 +269,29 @@ export default function CategoryScreen() {
 
 const styles = StyleSheet.create({
   categoryButtonsContainer: {
-  flexDirection: "row",
-  justifyContent: "center",
-  marginHorizontal: 20,
-  marginBottom: 12,
-  gap: 12,
-},
-
-categoryButton: {
-  paddingVertical: 8,
-  paddingHorizontal: 16,
-  backgroundColor: "#E2E8F0",
-  borderRadius: 20,
-},
-
-activeCategory: {
-  backgroundColor: "#22C55E",
-},
-
-categoryButtonText: {
-  color: "#334155",
-  fontSize: 14,
-  fontWeight: "600",
-},
-
-activeCategoryText: {
-  color: "#FFFFFF",
-},
-
+    flexDirection: "row",
+    justifyContent: "center",
+    marginHorizontal: 20,
+    marginBottom: 12,
+    gap: 12,
+  },
+  categoryButton: {
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    backgroundColor: "#E2E8F0",
+    borderRadius: 20,
+  },
+  activeCategory: {
+    backgroundColor: "#22C55E",
+  },
+  categoryButtonText: {
+    color: "#334155",
+    fontSize: 14,
+    fontWeight: "600",
+  },
+  activeCategoryText: {
+    color: "#FFFFFF",
+  },
   container: {
     flex: 1,
     backgroundColor: "#F8FAFC",
@@ -276,7 +300,7 @@ activeCategoryText: {
     flexDirection: "row",
     alignItems: "center",
     paddingHorizontal: 20,
-    paddingVertical: 16,
+    paddingVertical: 14,
     backgroundColor: "#22C55E",
   },
   backButton: {
@@ -289,7 +313,7 @@ activeCategoryText: {
   },
   headerTitle: {
     flex: 1,
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: "700",
     color: "#FFFFFF",
     textAlign: "center",
@@ -302,10 +326,10 @@ activeCategoryText: {
     alignItems: "center",
     backgroundColor: "#FFFFFF",
     marginHorizontal: 20,
-    marginVertical: 16,
+    marginVertical: 12,
     paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderRadius: 12,
+    paddingVertical: 10,
+    borderRadius: 10,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
@@ -322,7 +346,8 @@ activeCategoryText: {
     flex: 1,
   },
   productsContainer: {
-    padding: 20,
+    paddingHorizontal: 20,
+    paddingVertical: 20,
   },
   resultCount: {
     fontSize: 16,
@@ -330,98 +355,110 @@ activeCategoryText: {
     color: "#64748B",
     marginBottom: 16,
   },
-  productRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    marginBottom: 16,
-  },
   productCard: {
-    flex: 1,
-    backgroundColor: "#FFFFFF",
-    borderRadius: 12,
-    padding: 12,
-    marginHorizontal: 4,
+    flexDirection: "row",
+    backgroundColor: "#FFF",
+    borderRadius: 10,
+    padding: 10,
+    marginBottom: 12,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
     elevation: 3,
-  },
-  emptyCard: {
-    flex: 1,
-    marginHorizontal: 4,
+    alignItems: "flex-start",
   },
   productImage: {
-    width: "100%",
-    height: 80,
+    width: 70,
+    height: 70,
     borderRadius: 8,
     resizeMode: "cover",
-    marginBottom: 8,
+    marginRight: 12,
+    backgroundColor: "#F1F1F1",
   },
   productInfo: {
     flex: 1,
+    flexDirection: "column",
+    justifyContent: "space-between",
+  },
+  nameAndPriceRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
   },
   productName: {
-    fontSize: 14,
-    fontWeight: "600",
+    fontSize: 16,
+    fontWeight: "bold",
     color: "#1E293B",
-    marginBottom: 4,
-    minHeight: 32,
+    flex: 1,
+    marginRight: 4,
   },
   productPrice: {
     fontSize: 16,
     fontWeight: "700",
     color: "#22C55E",
-    marginBottom: 4,
+    marginVertical: 2,
+  },
+  mandiPrice: {
+    fontSize: 12,
+    color: "#64748B",
+    marginBottom: 2,
   },
   stockText: {
     fontSize: 12,
     color: "#64748B",
     marginBottom: 8,
   },
-  quantityContainer: {
-    marginBottom: 8,
-  },
-  quantityLabel: {
-    fontSize: 12,
-    color: "#64748B",
-    marginBottom: 4,
+  rowActions: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginTop: 8,
   },
   quantitySelector: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "center",
+    marginRight: 12,
+    backgroundColor: "#F0FDF4",
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+    paddingHorizontal: 4,
+    paddingVertical: 2,
   },
   quantityButton: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: "#F0FDF4",
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: "#FFFFFF",
     borderWidth: 1,
     borderColor: "#22C55E",
     justifyContent: "center",
     alignItems: "center",
   },
   quantityInput: {
-    flex: 1,
+    width: 40,
     textAlign: "center",
     fontSize: 14,
     fontWeight: "600",
     color: "#1E293B",
-    marginHorizontal: 8,
+    marginHorizontal: 6,
     paddingVertical: 4,
-    borderBottomWidth: 1,
-    borderBottomColor: "#E2E8F0",
-    minHeight: 24,
+    backgroundColor: "#FFFFFF",
+    borderRadius: 4,
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
   },
   addButton: {
     borderRadius: 8,
-    paddingVertical: 8,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
     alignItems: "center",
+    justifyContent: "center",
+    minWidth: 90,
   },
   addButtonText: {
-    fontSize: 12,
-    fontWeight: "600",
+    fontSize: 13,
+    fontWeight: "700",
     color: "#FFFFFF",
   },
   emptyState: {

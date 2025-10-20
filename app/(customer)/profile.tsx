@@ -1,116 +1,227 @@
 "use client"
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, SafeAreaView, Image, Alert } from "react-native"
+
+import { useState } from "react"
+import {
+  View,
+  Text,
+  ScrollView,
+  StyleSheet,
+  TouchableOpacity,
+  TextInput,
+  Image,
+  Alert,
+  SafeAreaView,
+} from "react-native"
 import { router } from "expo-router"
-import { ArrowLeft, MapPin, Phone, Mail, History, Settings, LogOut } from "lucide-react-native"
-import { useAuth } from "@/contexts/AuthContext"
+import { Ionicons } from "@expo/vector-icons"
+import * as ImagePicker from "expo-image-picker"
 
-export default function ProfileScreen() {
-  const { user, logout } = useAuth()
+export default function Profile() {
+  const [isEditing, setIsEditing] = useState(false)
+  const [profileData, setProfileData] = useState({
+    name: "John Doe",
+    email: "john.doe@example.com",
+    phone: "+91 9876543210",
+    address: "123 Green Street, Sector 15, Chandigarh",
+    profileImage: "/placeholder.svg?height=120&width=120",
+  })
 
-  const handleLogout = () => {
-    Alert.alert("Logout", "Are you sure you want to logout?", [
-      { text: "Cancel", style: "cancel" },
-      {
-        text: "Logout",
-        style: "destructive",
-        onPress: async () => {
-          await logout()
-          router.replace("/(auth)/welcome")
-        },
-      },
-    ])
+  const handleImagePicker = async () => {
+    const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync()
+
+    if (permissionResult.granted === false) {
+      Alert.alert("Permission Required", "Permission to access camera roll is required!")
+      return
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.8,
+    })
+
+    if (!result.canceled) {
+      setProfileData((prev) => ({
+        ...prev,
+        profileImage: result.assets[0].uri,
+      }))
+    }
   }
 
-  const menuItems = [
-    {
-      icon: <History size={24} stroke="#64748B" strokeWidth={2} />,
-      title: "Order History",
-      subtitle: "View your past orders",
-      onPress: () => router.push("/(customer)/order-history"),
-    },
-    {
-      icon: <Settings size={24} stroke="#64748B" strokeWidth={2} />,
-      title: "Settings",
-      subtitle: "App preferences",
-      onPress: () => router.push("/(customer)/settings"),
-    },
-    {
-      icon: <LogOut size={24} stroke="#EF4444" strokeWidth={2} />,
-      title: "Logout",
-      subtitle: "Sign out of your account",
-      onPress: handleLogout,
-      textColor: "#EF4444",
-    },
-  ]
+  const handleSave = () => {
+    // Here you would typically save to your backend/database
+    Alert.alert("Success", "Profile updated successfully!")
+    setIsEditing(false)
+  }
+
+  const handleCancel = () => {
+    setIsEditing(false)
+    // Reset any unsaved changes if needed
+  }
 
   return (
     <SafeAreaView style={styles.container}>
+      {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
-          <ArrowLeft size={24} stroke="#FFFFFF" strokeWidth={2} />
+        <TouchableOpacity style={styles.headerBtn} onPress={() => router.back()}>
+          <Ionicons name="arrow-back" size={24} color="#333" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Profile</Text>
-        <View style={styles.headerSpacer} />
+        <TouchableOpacity style={styles.headerBtn} onPress={() => router.push("/(customer)/settings")}>
+          <Ionicons name="settings-outline" size={24} color="#333" />
+        </TouchableOpacity>
       </View>
 
-      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-        <View style={styles.profileSection}>
-          <View style={styles.avatarContainer}>
-            <Image source={{ uri: "/placeholder.svg?height=100&width=100&text=User" }} style={styles.avatar} />
+      <ScrollView showsVerticalScrollIndicator={false}>
+        {/* Profile Image Section */}
+        <View style={styles.profileImageSection}>
+          <View style={styles.imageContainer}>
+            <Image source={{ uri: profileData.profileImage }} style={styles.profileImage} />
+            {isEditing && (
+              <TouchableOpacity style={styles.editImageBtn} onPress={handleImagePicker}>
+                <Ionicons name="camera" size={20} color="white" />
+              </TouchableOpacity>
+            )}
           </View>
-          <Text style={styles.userName}>{user?.name || "User"}</Text>
-          <Text style={styles.userRole}>Customer</Text>
+          <Text style={styles.profileName}>{profileData.name}</Text>
+          <Text style={styles.profileEmail}>{profileData.email}</Text>
         </View>
 
-        <View style={styles.infoSection}>
-          <View style={styles.infoCard}>
-            <View style={styles.infoItem}>
-              <Phone size={20} stroke="#22C55E" strokeWidth={2} />
-              <View style={styles.infoText}>
-                <Text style={styles.infoLabel}>Phone Number</Text>
-                <Text style={styles.infoValue}>{user?.phone || "Not provided"}</Text>
-              </View>
+        {/* Profile Form */}
+        <View style={styles.formContainer}>
+          <View style={styles.formSection}>
+            <Text style={styles.sectionTitle}>Personal Information</Text>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>Full Name</Text>
+              <TextInput
+                style={[styles.input, !isEditing && styles.disabledInput]}
+                value={profileData.name}
+                onChangeText={(text) => setProfileData((prev) => ({ ...prev, name: text }))}
+                editable={isEditing}
+                placeholder="Enter your full name"
+              />
             </View>
 
-            <View style={styles.divider} />
-
-            <View style={styles.infoItem}>
-              <Mail size={20} stroke="#22C55E" strokeWidth={2} />
-              <View style={styles.infoText}>
-                <Text style={styles.infoLabel}>Email</Text>
-                <Text style={styles.infoValue}>{user?.email || "Not provided"}</Text>
-              </View>
+            <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>Email Address</Text>
+              <TextInput
+                style={[styles.input, !isEditing && styles.disabledInput]}
+                value={profileData.email}
+                onChangeText={(text) => setProfileData((prev) => ({ ...prev, email: text }))}
+                editable={isEditing}
+                placeholder="Enter your email"
+                keyboardType="email-address"
+                autoCapitalize="none"
+              />
             </View>
 
-            <View style={styles.divider} />
+            <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>Phone Number</Text>
+              <TextInput
+                style={[styles.input, !isEditing && styles.disabledInput]}
+                value={profileData.phone}
+                onChangeText={(text) => setProfileData((prev) => ({ ...prev, phone: text }))}
+                editable={isEditing}
+                placeholder="Enter your phone number"
+                keyboardType="phone-pad"
+              />
+            </View>
 
-            <View style={styles.infoItem}>
-              <MapPin size={20} stroke="#22C55E" strokeWidth={2} />
-              <View style={styles.infoText}>
-                <Text style={styles.infoLabel}>Address</Text>
-                <Text style={styles.infoValue} numberOfLines={2}>
-                  {user?.address || "Not provided"}
-                </Text>
+            <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>Address</Text>
+              <TextInput
+                style={[styles.input, styles.textArea, !isEditing && styles.disabledInput]}
+                value={profileData.address}
+                onChangeText={(text) => setProfileData((prev) => ({ ...prev, address: text }))}
+                editable={isEditing}
+                placeholder="Enter your address"
+                multiline
+                numberOfLines={3}
+              />
+            </View>
+          </View>
+
+          {/* Account Stats */}
+          <View style={styles.statsSection}>
+            <Text style={styles.sectionTitle}>Account Statistics</Text>
+            <View style={styles.statsGrid}>
+              <View style={styles.statItem}>
+                <Ionicons name="bag-outline" size={24} color="#2E7D32" />
+                <Text style={styles.statNumber}>24</Text>
+                <Text style={styles.statLabel}>Total Orders</Text>
+              </View>
+              <View style={styles.statItem}>
+                <Ionicons name="heart-outline" size={24} color="#2E7D32" />
+                <Text style={styles.statNumber}>12</Text>
+                <Text style={styles.statLabel}>Favorites</Text>
+              </View>
+              <View style={styles.statItem}>
+                <Ionicons name="star-outline" size={24} color="#2E7D32" />
+                <Text style={styles.statNumber}>4.8</Text>
+                <Text style={styles.statLabel}>Rating</Text>
               </View>
             </View>
           </View>
-        </View>
 
-        <View style={styles.menuSection}>
-          {menuItems.map((item, index) => (
-            <TouchableOpacity key={index} style={styles.menuItem} onPress={item.onPress} activeOpacity={0.7}>
-              <View style={styles.menuIcon}>{item.icon}</View>
-              <View style={styles.menuContent}>
-                <Text style={[styles.menuTitle, { color: item.textColor || "#1E293B" }]}>{item.title}</Text>
-                <Text style={styles.menuSubtitle}>{item.subtitle}</Text>
+          {/* Quick Actions */}
+          <View style={styles.actionsSection}>
+            <Text style={styles.sectionTitle}>Quick Actions</Text>
+
+            <TouchableOpacity style={styles.actionItem} onPress={() => router.push("/(customer)/order-history")}>
+              <View style={styles.actionLeft}>
+                <Ionicons name="time-outline" size={24} color="#2E7D32" />
+                <Text style={styles.actionText}>Order History</Text>
               </View>
-              <View style={styles.menuArrow}>
-                <Text style={styles.arrowText}>›</Text>
-              </View>
+              <Ionicons name="chevron-forward" size={20} color="#666" />
             </TouchableOpacity>
-          ))}
+
+            <TouchableOpacity style={styles.actionItem} onPress={() => router.push("/(customer)/favorites")}>
+              <View style={styles.actionLeft}>
+                <Ionicons name="heart-outline" size={24} color="#2E7D32" />
+                <Text style={styles.actionText}>My Favorites</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={20} color="#666" />
+            </TouchableOpacity>
+
+            <TouchableOpacity style={styles.actionItem} onPress={() => router.push("/(customer)/addresses")}>
+              <View style={styles.actionLeft}>
+                <Ionicons name="location-outline" size={24} color="#2E7D32" />
+                <Text style={styles.actionText}>Saved Addresses</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={20} color="#666" />
+            </TouchableOpacity>
+
+            <TouchableOpacity style={styles.actionItem} onPress={() => router.push("/(customer)/feedback")}>
+              <View style={styles.actionLeft}>
+                <Ionicons name="chatbubble-ellipses-outline" size={24} color="#2E7D32" />
+                <Text style={styles.actionText}>Feedback & Support</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={20} color="#666" />
+            </TouchableOpacity>
+          </View>
         </View>
       </ScrollView>
+
+      {/* Bottom Actions */}
+      <View style={styles.bottomActions}>
+        {!isEditing ? (
+          <TouchableOpacity style={styles.editBtn} onPress={() => setIsEditing(true)}>
+            <Ionicons name="create-outline" size={20} color="white" />
+            <Text style={styles.editBtnText}>Edit Profile</Text>
+          </TouchableOpacity>
+        ) : (
+          <View style={styles.editActions}>
+            <TouchableOpacity style={styles.cancelBtn} onPress={handleCancel}>
+              <Text style={styles.cancelBtnText}>Cancel</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.saveBtn} onPress={handleSave}>
+              <Text style={styles.saveBtnText}>Save Changes</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+      </View>
     </SafeAreaView>
   )
 }
@@ -118,149 +229,198 @@ export default function ProfileScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#F8FAFC",
+    backgroundColor: "#FAFAFA",
   },
   header: {
     flexDirection: "row",
+    justifyContent: "space-between",
     alignItems: "center",
     paddingHorizontal: 20,
-    paddingVertical: 16,
-    backgroundColor: "#22C55E",
+    paddingVertical: 15,
+    backgroundColor: "white",
+    borderBottomWidth: 1,
+    borderBottomColor: "#E0E0E0",
   },
-  backButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: "rgba(255,255,255,0.2)",
-    justifyContent: "center",
-    alignItems: "center",
+  headerBtn: {
+    padding: 5,
   },
   headerTitle: {
-    flex: 1,
-    fontSize: 20,
-    fontWeight: "700",
-    color: "#FFFFFF",
-    textAlign: "center",
+    fontSize: 18,
+    fontWeight: "600",
+    color: "#333",
   },
-  headerSpacer: {
-    width: 40,
-  },
-  content: {
-    flex: 1,
-  },
-  profileSection: {
+  profileImageSection: {
+    backgroundColor: "white",
     alignItems: "center",
-    paddingVertical: 32,
-    backgroundColor: "#FFFFFF",
+    paddingVertical: 30,
+    marginBottom: 10,
   },
-  avatarContainer: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    backgroundColor: "#F0FDF4",
+  imageContainer: {
+    position: "relative",
+    marginBottom: 15,
+  },
+  profileImage: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    backgroundColor: "#F5F5F5",
+  },
+  editImageBtn: {
+    position: "absolute",
+    bottom: 0,
+    right: 0,
+    backgroundColor: "#2E7D32",
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     justifyContent: "center",
     alignItems: "center",
-    marginBottom: 16,
     borderWidth: 3,
-    borderColor: "#22C55E",
+    borderColor: "white",
   },
-  avatar: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-  },
-  userName: {
+  profileName: {
     fontSize: 24,
-    fontWeight: "700",
-    color: "#1E293B",
-    marginBottom: 4,
+    fontWeight: "bold",
+    color: "#333",
+    marginBottom: 5,
   },
-  userRole: {
+  profileEmail: {
     fontSize: 16,
-    color: "#64748B",
+    color: "#666",
   },
-  infoSection: {
+  formContainer: {
+    flex: 1,
+  },
+  formSection: {
+    backgroundColor: "white",
     padding: 20,
+    marginBottom: 10,
   },
-  infoCard: {
-    backgroundColor: "#FFFFFF",
-    borderRadius: 16,
-    padding: 20,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: "600",
+    color: "#333",
+    marginBottom: 20,
   },
-  infoItem: {
-    flexDirection: "row",
-    alignItems: "flex-start",
+  inputGroup: {
+    marginBottom: 20,
+  },
+  inputLabel: {
+    fontSize: 14,
+    fontWeight: "500",
+    color: "#333",
+    marginBottom: 8,
+  },
+  input: {
+    borderWidth: 1,
+    borderColor: "#E0E0E0",
+    borderRadius: 10,
+    paddingHorizontal: 15,
     paddingVertical: 12,
+    fontSize: 16,
+    color: "#333",
+    backgroundColor: "white",
   },
-  infoText: {
+  disabledInput: {
+    backgroundColor: "#F5F5F5",
+    color: "#666",
+  },
+  textArea: {
+    height: 80,
+    textAlignVertical: "top",
+  },
+  statsSection: {
+    backgroundColor: "white",
+    padding: 20,
+    marginBottom: 10,
+  },
+  statsGrid: {
+    flexDirection: "row",
+    justifyContent: "space-around",
+  },
+  statItem: {
+    alignItems: "center",
     flex: 1,
-    marginLeft: 16,
   },
-  infoLabel: {
-    fontSize: 14,
-    color: "#64748B",
+  statNumber: {
+    fontSize: 24,
+    fontWeight: "bold",
+    color: "#2E7D32",
+    marginTop: 8,
     marginBottom: 4,
   },
-  infoValue: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: "#1E293B",
+  statLabel: {
+    fontSize: 12,
+    color: "#666",
   },
-  divider: {
-    height: 1,
-    backgroundColor: "#E2E8F0",
-    marginVertical: 8,
-  },
-  menuSection: {
+  actionsSection: {
+    backgroundColor: "white",
     padding: 20,
-    paddingTop: 0,
+    marginBottom: 10,
   },
-  menuItem: {
+  actionItem: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingVertical: 15,
+    borderBottomWidth: 1,
+    borderBottomColor: "#F0F0F0",
+  },
+  actionLeft: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#FFFFFF",
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 2,
   },
-  menuIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: "#F8FAFC",
+  actionText: {
+    fontSize: 16,
+    color: "#333",
+    marginLeft: 15,
+  },
+  bottomActions: {
+    backgroundColor: "white",
+    padding: 20,
+    borderTopWidth: 1,
+    borderTopColor: "#E0E0E0",
+  },
+  editBtn: {
+    backgroundColor: "#2E7D32",
+    flexDirection: "row",
     justifyContent: "center",
     alignItems: "center",
+    paddingVertical: 15,
+    borderRadius: 10,
   },
-  menuContent: {
-    flex: 1,
-    marginLeft: 16,
-  },
-  menuTitle: {
+  editBtnText: {
+    color: "white",
     fontSize: 16,
     fontWeight: "600",
-    marginBottom: 2,
+    marginLeft: 8,
   },
-  menuSubtitle: {
-    fontSize: 14,
-    color: "#64748B",
+  editActions: {
+    flexDirection: "row",
+    gap: 10,
   },
-  menuArrow: {
-    justifyContent: "center",
+  cancelBtn: {
+    flex: 1,
+    backgroundColor: "#F5F5F5",
+    paddingVertical: 15,
+    borderRadius: 10,
     alignItems: "center",
   },
-  arrowText: {
-    fontSize: 20,
-    color: "#94A3B8",
-    fontWeight: "300",
+  cancelBtnText: {
+    color: "#666",
+    fontSize: 16,
+    fontWeight: "600",
+  },
+  saveBtn: {
+    flex: 1,
+    backgroundColor: "#2E7D32",
+    paddingVertical: 15,
+    borderRadius: 10,
+    alignItems: "center",
+  },
+  saveBtnText: {
+    color: "white",
+    fontSize: 16,
+    fontWeight: "600",
   },
 })
